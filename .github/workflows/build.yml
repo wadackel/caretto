@@ -43,7 +43,7 @@ jobs:
       # Only on failure. A red build with no report sends you back to reproducing it locally,
       # which is most of what CI was for.
       - if: failure()
-        uses: actions/upload-artifact@v7.0.1
+        uses: actions/upload-artifact@v7.0.2
         with:
           name: reports
           path: |
