@@ -1,0 +1,122 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Caretto</string>
+    <string name="accessibility_service_description">Reads Ctrl chords from a physical keyboard as Emacs-style editing while you are typing in a text field. Terminal apps receive their key events untouched.</string>
+    <string name="accessibility_service_summary">Adds Emacs-style key bindings to a physical keyboard</string>
+
+    <string name="status_remapping">Remapping</string>
+    <string name="status_paused">Paused</string>
+    <string name="status_connecting">Connecting</string>
+    <string name="status_stopped">Not running</string>
+    <string name="status_detail_remapping">Chords are read in text fields.</string>
+    <string name="status_detail_paused">Every key passes through.</string>
+    <string name="status_detail_connecting">Waiting for the service to start.</string>
+    <string name="status_detail_stopped">Off in accessibility settings.</string>
+    <string name="open_settings">Open settings</string>
+    <string name="tile_needs_grant">Grant from adb first</string>
+
+    <string name="settings">Settings</string>
+    <string name="back">Back</string>
+
+    <string name="group_move">Move</string>
+    <string name="group_delete">Delete</string>
+    <string name="group_edit">Clipboard &amp; undo</string>
+    <string name="group_system">System</string>
+    <string name="keymap_empty">(no bindings)</string>
+    <string name="add_binding">Add binding</string>
+    <string name="edit_binding">Edit %1$s</string>
+    <string name="change_key">Change key</string>
+    <string name="change_operation">Change operation</string>
+    <string name="remove">Remove</string>
+    <string name="capture_title">Press a key combination</string>
+    <string name="capture_title_change">Press the new key combination</string>
+    <string name="capture_message">Hold Ctrl, Alt or Meta and press a key. Other keys are ignored.</string>
+    <string name="capture_waiting">Waiting for a chord from the physical keyboard</string>
+    <string name="choose_operation">Choose an operation</string>
+    <string name="operation_current">Current</string>
+    <string name="operation_on">On %1$s</string>
+    <string name="binding_removed">Removed %1$s.</string>
+    <string name="binding_now_runs">%1$s now runs %2$s.</string>
+    <string name="binding_taken_from">%1$s no longer runs %2$s.</string>
+    <string name="binding_moved">%1$s moved to %2$s.</string>
+    <string name="keymap_reset">Key map reset to the defaults.</string>
+    <string name="cancel">Cancel</string>
+    <string name="undo">Undo</string>
+
+    <string name="op_move_backward">Move backward</string>
+    <string name="op_move_forward">Move forward</string>
+    <string name="op_move_up">Move up</string>
+    <string name="op_move_down">Move down</string>
+    <string name="op_move_line_start">Move to line start</string>
+    <string name="op_move_line_end">Move to line end</string>
+    <string name="op_delete_backward">Delete backward</string>
+    <string name="op_delete_forward">Delete forward</string>
+    <string name="op_delete_to_line_end">Delete to line end</string>
+    <string name="op_move_word_forward">Move forward by word</string>
+    <string name="op_move_word_backward">Move backward by word</string>
+    <string name="op_delete_word_forward">Delete word forward</string>
+    <string name="op_delete_word_backward">Delete word backward</string>
+    <string name="op_copy">Copy</string>
+    <string name="op_cut">Cut</string>
+    <string name="op_paste">Paste</string>
+    <string name="op_select_all">Select all</string>
+    <string name="op_undo">Undo</string>
+    <string name="op_redo">Redo</string>
+    <string name="op_home">Go home</string>
+    <string name="op_recents">Show recent apps</string>
+    <string name="op_back">Back</string>
+    <string name="op_all_apps">Show all apps</string>
+
+    <string name="section_apps">Apps</string>
+    <string name="section_behavior">Behavior</string>
+    <string name="section_check">Check</string>
+
+    <string name="section_raw_apps">Pass-through apps</string>
+    <string name="raw_apps_help">Chords are never remapped in these apps, so Control sequences reach tmux or Neovim.</string>
+    <string name="section_select_delete_apps">Select-then-delete apps</string>
+    <string name="select_delete_apps_help">Some editors ignore forward deletion. In these apps it selects the range and replaces it instead. Add one only if deleting forward does nothing there.</string>
+    <string name="raw_apps_empty">(none)</string>
+    <plurals name="apps_summary_more">
+        <item quantity="one">%1$s and %2$d more</item>
+        <item quantity="other">%1$s and %2$d more</item>
+    </plurals>
+    <string name="add_app">Add app</string>
+    <string name="pick_app">Add an app</string>
+    <string name="search_apps">Search</string>
+    <string name="loading_apps">Reading the list of installed apps…</string>
+    <string name="already_added">%1$s · added</string>
+    <string name="remove_package">Remove %1$s</string>
+    <string name="app_removed">Removed %1$s.</string>
+    <string name="apps_reset">Reset to the defaults.</string>
+    <string name="reset_to_defaults">Reset to defaults</string>
+
+    <string name="fallback_enabled">Key event fallback</string>
+    <string name="fallback_enabled_help">Moving up or down, and deleting a selection, have no editor operation behind them. This sends a plain key press instead.</string>
+    <string name="verbose_log">Verbose logs</string>
+    <string name="verbose_log_help">Every physical key press goes to the log and logcat. Turn it off when you are done.</string>
+
+    <string name="test_editor_detail">Four editors side by side</string>
+    <string name="section_app">App</string>
+    <string name="about">About</string>
+    <string name="section_project">Project</string>
+    <string name="source_code">Source code</string>
+    <string name="license">License</string>
+    <string name="section_open_source">Open source</string>
+    <string name="section_log">Log</string>
+    <string name="clear">Clear</string>
+    <string name="copy">Copy</string>
+    <string name="log_copied">Log copied.</string>
+    <string name="log_empty">(no entries yet)</string>
+
+    <string name="test_editor_title">Test editor</string>
+    <string name="test_editor_intro">The same chords, four editors. Where they disagree is what the log is for.</string>
+    <string name="field_edittext_multiline">Android EditText — multi-line</string>
+    <string name="field_edittext_singleline">Android EditText — single-line</string>
+    <string name="field_compose_state">Compose TextField — TextFieldState</string>
+    <string name="field_compose_value">Compose TextField — TextFieldValue</string>
+    <string name="insert_sample">Insert sample</string>
+    <string name="exclusion_label">Checking the exclusion rule</string>
+    <string name="exclusion_help">Add this app to the pass-through list and chords stop being remapped here.</string>
+    <string name="exclusion_passing">Passing through</string>
+    <string name="exclusion_remapping">Remapping here</string>
+</resources>

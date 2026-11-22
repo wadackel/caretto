@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+# Runs ./gradlew with the devShell's JDK, entering the devShell first when this shell is not in it.
+set -euo pipefail
+
+root="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+if [[ -z "${CARETTO_DEVSHELL:-}" ]]; then
+  exec nix --extra-experimental-features 'nix-command flakes' develop "$root" --command "$root/gw" "$@"
+fi
+
+exec "$root/gradlew" -p "$root" "$@"

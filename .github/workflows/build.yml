@@ -1,0 +1,53 @@
+# The same gate that runs locally, run from a fresh checkout.
+#
+# What this can cover is the pure layer, which is where this app deliberately keeps its logic.
+# Everything that goes through the accessibility service needs a key from a physical keyboard, and
+# this job has neither a phone nor an emulator to send one — see docs/findings.md F16, F18 and
+# F20. The instrumentation tests are left out on purpose: their expected values are pinned against
+# one phone's ICU, so a different emulator image would fail them without anything being wrong.
+# docs/debugging.md says when to run those by hand.
+name: build
+
+on:
+  push:
+  pull_request:
+
+# A newer push makes the running one pointless.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+    # Both a spending limit and a tripwire: a build that reaches this has stopped being the build.
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v7.0.1
+
+      # The runner carries several JDKs, so say which one rather than take what is first.
+      - uses: actions/setup-java@v5.7.0
+        with:
+          distribution: temurin
+          java-version: 17
+
+      # Caching, and a checksum on the committed wrapper jar.
+      - uses: gradle/actions/setup-gradle@v6.3.0
+
+      - run: ./gradlew assembleDebug testDebugUnitTest lintDebug
+
+      # Only on failure. A red build with no report sends you back to reproducing it locally,
+      # which is most of what CI was for.
+      - if: failure()
+        uses: actions/upload-artifact@v7.0.1
+        with:
+          name: reports
+          path: |
+            app/build/reports/tests/testDebugUnitTest/
+            app/build/test-results/testDebugUnitTest/
+            app/build/reports/lint-results-debug.html
+          retention-days: 7

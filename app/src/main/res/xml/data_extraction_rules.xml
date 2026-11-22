@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- caretto_local.xml is left out of both on purpose: it holds verbose logging, which a new device
+     must start with switched off (Prefs.LOCAL_FILE). -->
+<data-extraction-rules>
+    <cloud-backup>
+        <include domain="sharedpref" path="caretto.xml" />
+    </cloud-backup>
+    <device-transfer>
+        <include domain="sharedpref" path="caretto.xml" />
+    </device-transfer>
+</data-extraction-rules>

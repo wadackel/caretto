@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+# Drives the dedicated emulator (tools/emu.ts), entering the devShell first when this shell is not in it.
+set -euo pipefail
+
+here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+if [[ -z "${CARETTO_DEVSHELL:-}" ]]; then
+  exec nix --extra-experimental-features 'nix-command flakes' develop "$here/.." --command "$here/emu" "$@"
+fi
+
+exec bun --no-env-file --no-install --config=/dev/null "$here/emu.ts" "$@"

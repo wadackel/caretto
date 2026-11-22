@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+# Runs the emulator scenarios (tools/e2e.ts), entering the devShell first when this shell is not in it.
+set -euo pipefail
+
+here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+if [[ -z "${CARETTO_DEVSHELL:-}" ]]; then
+  exec nix --extra-experimental-features 'nix-command flakes' develop "$here/.." --command "$here/e2e" "$@"
+fi
+
+exec bun --no-env-file --no-install --config=/dev/null "$here/e2e.ts" "$@"

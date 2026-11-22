@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+# Runs the instrumentation tests on a named device and puts Caretto back there afterwards
+# (tools/device-tests.ts), entering the devShell first when this shell is not in it.
+set -euo pipefail
+
+here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+if [[ -z "${CARETTO_DEVSHELL:-}" ]]; then
+  exec nix --extra-experimental-features 'nix-command flakes' develop "$here/.." --command "$here/device-tests" "$@"
+fi
+
+exec bun --no-env-file --no-install --config=/dev/null "$here/device-tests.ts" "$@"

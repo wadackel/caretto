@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The launcher mark cropped to its two wedges, for the app bar. On the light ground the right
+     wedge is a step darker than the launcher's, which would otherwise wash out. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="56dp"
+    android:height="24dp"
+    android:viewportWidth="56"
+    android:viewportHeight="24">
+    <group
+        android:translateX="-26"
+        android:translateY="-42">
+        <path
+            android:fillColor="#FF7C4DFF"
+            android:pathData="M27.835 59.183 A2.886 2.886 0 0 0 29.98 64 L35.47 64 A3 3 0 0 0 37.898 62.761 L48.683 47.886 A2.449 2.449 0 0 0 46.7 44 L42.836 44 A3 3 0 0 0 40.606 44.993 Z" />
+        <path
+            android:fillColor="#FFB9A2F5"
+            android:pathData="M67.394 44.993 A3 3 0 0 0 65.164 44 L61.3 44 A2.449 2.449 0 0 0 59.317 47.886 L70.102 62.761 A3 3 0 0 0 72.53 64 L78.02 64 A2.886 2.886 0 0 0 80.165 59.183 Z" />
+    </group>
+</vector>

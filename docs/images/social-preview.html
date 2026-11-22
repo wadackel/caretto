@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<!--
+  Source of social-preview.png, GitHub's social preview for the repository (1280 x 640).
+  Regenerate by opening this file in a browser with a 1280 x 640 viewport and taking a screenshot;
+  it uses the fonts bundled with the app and the palette in docs/design.md.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Caretto social preview</title>
+<style>
+@font-face { font-family: "Plex Sans"; font-weight: 400; src: url("../../app/src/main/res/font/ibm_plex_sans_regular.ttf"); }
+@font-face { font-family: "Plex Sans"; font-weight: 600; src: url("../../app/src/main/res/font/ibm_plex_sans_semibold.ttf"); }
+@font-face { font-family: "Plex Mono"; font-weight: 400; src: url("../../app/src/main/res/font/ibm_plex_mono_regular.ttf"); }
+@font-face { font-family: "Plex Mono"; font-weight: 500; src: url("../../app/src/main/res/font/ibm_plex_mono_medium.ttf"); }
+@font-face { font-family: "Plex Mono"; font-weight: 600; src: url("../../app/src/main/res/font/ibm_plex_mono_semibold.ttf"); }
+* { box-sizing: border-box; margin: 0; }
+html, body { width: 1280px; height: 640px; overflow: hidden; }
+body {
+  background: #131116; color: #ebe7f0; font-family: "Plex Sans", sans-serif;
+  display: grid; grid-template-columns: 1fr 470px; gap: 72px; align-items: center; padding: 0 96px;
+}
+.name { display: flex; align-items: center; gap: 26px; }
+.name svg { width: 112px; flex: none; }
+h1 { font-size: 88px; font-weight: 600; letter-spacing: -0.015em; line-height: 1; }
+p { margin-top: 34px; font-size: 30px; line-height: 1.4; color: #a29cab; max-width: 620px; text-wrap: balance; }
+p code { font-family: "Plex Mono", monospace; font-size: 27px; color: #ebe7f0; }
+.label { font: 500 15px/1 "Plex Mono", monospace; letter-spacing: 0.08em; text-transform: uppercase; color: #a29cab; margin: 0 0 12px 18px; }
+.rows { display: flex; flex-direction: column; gap: 3px; }
+.row { display: flex; align-items: center; justify-content: space-between; height: 66px; padding: 0 22px; background: #1d1a22; border-radius: 7px; font-size: 22px; }
+.row:first-child { border-radius: 24px 24px 7px 7px; }
+.row:last-child { border-radius: 7px 7px 24px 24px; }
+.keys { display: flex; gap: 6px; }
+.k { font: 400 18px/1 "Plex Mono", monospace; padding: 8px 10px; border-radius: 6px; min-width: 34px; text-align: center; background: rgba(235, 231, 240, 0.07); color: #a29cab; }
+.k:last-child { font-weight: 600; background: rgba(235, 231, 240, 0.12); color: #ebe7f0; }
+</style>
+</head>
+<body>
+<div>
+  <div class="name">
+    <svg viewBox="26 42 56 24" aria-hidden="true">
+      <path fill="#7C4DFF" d="M27.835 59.183 A2.886 2.886 0 0 0 29.98 64 L35.47 64 A3 3 0 0 0 37.898 62.761 L48.683 47.886 A2.449 2.449 0 0 0 46.7 44 L42.836 44 A3 3 0 0 0 40.606 44.993 Z"/>
+      <path fill="#CBB6FF" d="M67.394 44.993 A3 3 0 0 0 65.164 44 L61.3 44 A2.449 2.449 0 0 0 59.317 47.886 L70.102 62.761 A3 3 0 0 0 72.53 64 L78.02 64 A2.886 2.886 0 0 0 80.165 59.183 Z"/>
+    </svg>
+    <h1>Caretto</h1>
+  </div>
+  <p>Emacs-style <code>Ctrl</code> chords on a physical keyboard for Android, only while you edit text.</p>
+</div>
+<div>
+  <div class="label">Key map</div>
+  <div class="rows">
+    <div class="row">Move forward<span class="keys"><span class="k">Ctrl</span><span class="k">F</span></span></div>
+    <div class="row">Move to line end<span class="keys"><span class="k">Ctrl</span><span class="k">E</span></span></div>
+    <div class="row">Delete backward<span class="keys"><span class="k">Ctrl</span><span class="k">H</span></span></div>
+    <div class="row">Delete word backward<span class="keys"><span class="k">Alt</span><span class="k">H</span></span></div>
+    <div class="row">Delete to line end<span class="keys"><span class="k">Ctrl</span><span class="k">K</span></span></div>
+  </div>
+</div>
+</body>
+</html>

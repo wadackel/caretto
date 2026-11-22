@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <application>
+        <!--
+          Exported in debug builds only, so `tools/emu editor` can open it with `am start`. The
+          shell cannot start an activity that is not exported, and `run-as` does not help: the
+          activity manager checks that the calling package is the shell's own.
+        -->
+        <activity
+            android:name=".ui.TestEditorActivity"
+            android:exported="true"
+            tools:replace="android:exported" />
+
+        <!--
+          Sets up each emulator scenario (`tools/e2e`), including the bindings and verbose logging.
+          DUMP keeps out every app that was not granted it from adb, and the receiver itself refuses
+          to act anywhere but an emulator, so an app granted DUMP on a phone running a debug build
+          gets nothing from it. Shipping it disabled does not work: the shell cannot enable a
+          component of a package that is not test-only.
+        -->
+        <receiver
+            android:name=".ui.testeditor.ScenarioReceiver"
+            android:exported="true"
+            android:permission="android.permission.DUMP" />
+    </application>
+</manifest>
