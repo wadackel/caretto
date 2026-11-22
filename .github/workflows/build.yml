@@ -36,7 +36,7 @@ jobs:
           java-version: 17
 
       # Caching, and a checksum on the committed wrapper jar.
-      - uses: gradle/actions/setup-gradle@v6.3.0
+      - uses: gradle/actions/setup-gradle@v6.4.1
 
       - run: ./gradlew assembleDebug testDebugUnitTest lintDebug
 
