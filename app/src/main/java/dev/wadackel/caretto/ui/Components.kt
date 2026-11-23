@@ -219,9 +219,11 @@ fun CarettoSwitch(checked: Boolean, onCheckedChange: ((Boolean) -> Unit)?, modif
             checkedTrackColor = colors.accent,
             checkedThumbColor = colors.thumbOn,
             checkedBorderColor = colors.accent,
+            // Track alone is too close to Row to show the switch (1.4:1 in light), and a white
+            // thumb on it is no better, so the off state is drawn by a Muted outline and thumb.
             uncheckedTrackColor = colors.track,
-            uncheckedThumbColor = Color.White,
-            uncheckedBorderColor = colors.track,
+            uncheckedThumbColor = colors.muted,
+            uncheckedBorderColor = colors.muted,
         ),
     )
 }
