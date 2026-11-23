@@ -5,6 +5,7 @@ import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -347,9 +348,11 @@ private val ButtonCorner = 8.dp
 @Composable
 private fun StatusDot(color: Color, pulsing: Boolean) {
     val modifier = if (pulsing) Modifier.pulsing(0) else Modifier
-    Box(contentAlignment = Alignment.Center, modifier = modifier.size(16.dp)) {
-        Box(Modifier.size(16.dp).clip(CircleShape).background(color.copy(alpha = 0.18f)))
-        Box(Modifier.size(8.dp).clip(CircleShape).background(color))
+    // Two nested Boxes are each placed at whole pixels: at 420 dpi the halo is 42 px and the dot
+    // 21 px, so the dot sat half a pixel off centre. Drawing both from one centre cannot round apart.
+    Canvas(modifier.size(16.dp)) {
+        drawCircle(color.copy(alpha = 0.18f), radius = size.minDimension / 2)
+        drawCircle(color, radius = size.minDimension / 4)
     }
 }
 
