@@ -275,7 +275,7 @@ class Runner {
   /**
    * Taps the node whose text or content description is exactly [text], scrolling down to find it
    * when [scroll] is set, and otherwise looking again while a sheet is still sliding in. Only the
-   * capture step uses it, to reach the key map's controls, never to read a result. A dump between
+   * capture and cover steps use it, to reach the key map's controls, never to read a result. A dump between
    * chords is the price of driving the real sheets rather than a debug-only way into them.
    */
   private async tapText(text: string, scroll: boolean): Promise<boolean> {
@@ -305,18 +305,19 @@ class Runner {
     return false;
   }
 
-  private async openCaptureSheet(): Promise<void> {
+  /** Opens the sheet and returns the log mark from before it opened. */
+  private async openCaptureSheet(): Promise<number> {
     const mark = this.log.mark;
     await adb(this.config, "shell", "am", "start", "-W", "-n", MAIN_ACTIVITY);
     if (!(await this.tapText("Add binding", false))) throw new StepFailure("no Add binding button on the key map");
     if (!(await this.log.waitForCaretto((line) => line.includes("capture mode on"), mark, LAND_MS))) {
       throw new StepFailure("the capture sheet did not open");
     }
+    return mark;
   }
 
   private async coverCapture(cover: "recents" | "shade", editor: EditorName, before: EditorState): Promise<void> {
-    await this.openCaptureSheet();
-    const opened = this.log.mark;
+    const opened = await this.openCaptureSheet();
     // The sheet's window takes focus a moment after it opens; capture must survive that.
     await sleep(UNCHANGED_MS);
     const ended = (line: string) => line.includes("capture mode off");

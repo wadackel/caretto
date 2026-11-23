@@ -285,7 +285,7 @@ export const SCENARIOS: Scenario[] = [
   },
   {
     id: "capture-covered",
-    covers: "Recents or the notification shade over the capture sheet ends capture, so a chord pressed there is not swallowed",
+    covers: "Recents or the notification shade over the capture sheet ends capture, so a hidden sheet cannot swallow the next chord",
     editors: ["edittext-multiline"],
     start: "a|bc",
     steps: [

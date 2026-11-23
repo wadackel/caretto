@@ -208,7 +208,7 @@ fun CaptureSheet(
         val window = LocalWindowInfo.current
         LaunchedEffect(window) {
             snapshotFlow { window.isWindowFocused }.dropWhile { !it }.first { !it }
-            dismiss.value()
+            if (got == null) dismiss.value()
         }
         Column(
             modifier = Modifier

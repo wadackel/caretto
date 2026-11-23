@@ -237,10 +237,10 @@ runner also checks the chord's key line: absent, because Caretto took it, unless
 chord reaches the editor. The capture step opens the key map, finds the add button and then the
 operation in the picker with `uiautomator dump`, and waits for the service to reconnect before
 sending the next chord. The dumps only find controls, never a result, and they are what lets the
-step press the real capture sheet rather than one opened by a debug-only route. It is
-the one check that reads Caretto's own log: no editor is focused behind the sheet, so the only
-trace of a captured chord that also ran is Caretto's line for the operation. The cover step opens
-the sheet the same way, covers it with Recents or the notification shade, and fails unless
+step press the real capture sheet rather than one opened by a debug-only route. It and the cover
+step are the only checks that read Caretto's own log: no editor is focused behind the sheet, so the
+only trace of a captured chord that also ran is Caretto's line for the operation. The cover step
+opens the sheet the same way, covers it with Recents or the notification shade, and fails unless
 Caretto logs `capture mode off` then and not before.
 
 A scenario is a start state, written `ab|c` for a caret or `[abc]` for a selection, and a list of
