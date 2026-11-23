@@ -47,6 +47,8 @@ adb shell getprop service.adb.tcp.port
 With an emulator running, `adb` cannot decide where to send, and commands without `-s` fail with
 `more than one device`. The device's serial changes with how it is connected — the phone's own serial over
 USB, `<Tailscale address>:5555` over wireless — so looking it up by model name is reliable.
+This repository's own emulator is not among them: it is on an adb server of its own (see "The
+dedicated emulator").
 
 ```bash
 S=$(adb devices -l | grep SM_F971Q | awk '{print $1}' | head -1)
@@ -99,10 +101,11 @@ tools/emu editor         # open the test editor (debug builds export it for this
 tools/emu press ctrl+a   # press and release a chord; several chords go in turn
 tools/emu type hello     # plain text, no modifiers, printable ASCII only
 tools/emu install        # after changing the app: rebuild, reinstall, enable again
-tools/emu stop
+tools/emu adb shell ...  # any adb command, on this emulator through its own adb server
+tools/emu stop           # also stops that adb server
 ```
 
-`start` ends with one line, `caretto_e2e ready on emulator-5570 (gRPC 8570): Caretto installed and
+`start` ends with one line, `caretto_e2e ready on emulator-5600 (gRPC 8600): Caretto installed and
 enabled`, once the service is enabled and filtering keys (recipe 2's `KeyboardInterceptor`).
 The emulator's own output goes to `build/emulator-<avd>.log`. It boots cold every time, because no
 snapshot is saved, but its data partition survives a restart: the app, its preferences and the
@@ -110,9 +113,23 @@ grant are still there next time.
 
 **It touches only its own AVD.** The name must start with `caretto_`, so a typo cannot reach
 `limenty_fold` or another project's AVD, and before installing or sending anything the tool asks
-the emulator on its port which AVD it is running. Every `adb` call names that emulator's serial,
-so a phone connected at the same time is never the target. Run your own `adb` commands the same
-way: `adb -s emulator-5570 ...`.
+the emulator on its port which AVD it is running.
+
+**It has an adb server of its own.** The shared server on 5037, which the phone and other
+projects' emulators are on, is restarted now and then by other tools on the owner's Mac, and a
+restart cuts whatever runs through it. So the emulator registers with a server on its console port + 10000 (15600 by default) and
+every `adb` call of the tools goes there, through one function in `tools/emu.ts` that `run` refuses
+to bypass. That server is started with no scan of ports 5555–5585 (`ADB_LOCAL_TRANSPORT_MAX_PORT`
+below 5555), no mDNS and no USB, so `tools/emu adb devices` lists this emulator and nothing else,
+and the console port is outside 5555–5585, so the shared server does not find the emulator either.
+When its own server restarts, the emulator registers with it again within a second or so. Run your
+own commands the same way: `tools/emu adb <args>` is `adb -s <serial> <args>` on that server, with
+its output and exit status. Plain `adb` does not see this emulator, and neither does
+`tools/device-tests`, which stays on the shared server for the phone.
+
+An emulator that an older checkout started on 5570 is on the shared server, and the tool no longer
+accepts that port, so stop it once by hand before the first `tools/emu start`:
+`adb -s emulator-5570 emu kill`. Otherwise the new start tries to boot the same AVD a second time.
 
 ### Settings
 
@@ -122,7 +139,7 @@ first, and a Linux x86_64 machine picks the matching system image.
 | Variable | Default |
 |---|---|
 | `CARETTO_AVD` | `caretto_e2e` |
-| `CARETTO_EMU_PORT` | `5570` (console port; the serial is `emulator-<port>`) |
+| `CARETTO_EMU_PORT` | `5600` (console port, even, 5586–5682; the serial is `emulator-<port>`, its adb server is on the port + 10000) |
 | `CARETTO_GRPC_PORT` | console port + 3000 |
 | `CARETTO_SYSTEM_IMAGE` | `system-images;android-36;google_apis;<host abi>`, installed with `sdkmanager` when missing |
 | `CARETTO_AVD_DEVICE` | `pixel_7` |
@@ -130,7 +147,7 @@ first, and a Linux x86_64 machine picks the matching system image.
 | `ANDROID_HOME` | `~/Library/Android/sdk` on macOS, `~/Android/Sdk` elsewhere |
 
 ```bash
-CARETTO_AVD=caretto_other CARETTO_EMU_PORT=5580 tools/emu start
+CARETTO_AVD=caretto_other CARETTO_EMU_PORT=5620 tools/emu start
 ```
 
 The AVD is created with `hw.keyboard=yes`, and `start` writes that again into an existing one.
@@ -166,7 +183,7 @@ rather than the command line.
 
 Focus an editor by tapping it. Injected touches are fine, since only keys are checked for coming
 from a device; on the default `pixel_7` profile, with the test editor scrolled to the top,
-`adb -s emulator-5570 shell input tap 540 700` focuses the multi-line EditText. Straight after
+`tools/emu adb shell input tap 540 700` focuses the multi-line EditText. Straight after
 `tools/emu editor` the first tap has been seen not to take, so type something and look for that
 editor's line (below) before relying on the focus.
 
@@ -187,7 +204,7 @@ in the same frame, such as the characters of one `type`, arrive as one line. Rea
 Caretto's own lines:
 
 ```bash
-adb -s emulator-5570 logcat -v brief Caretto:D TestEditor:D "*:S"
+tools/emu adb logcat -v brief Caretto:D TestEditor:D "*:S"
 ```
 
 Each key press that reaches an editor gets a line of its own, written in `tools/emu`'s chord
@@ -228,7 +245,7 @@ run it is sent once more, leaving the defaults with verbose logging off. Because
 rewrite the bindings and turn verbose key logging on, only holders of `DUMP` (the shell, or an
 app someone granted it from adb) can send to it, and it does nothing outside an emulator: on a
 phone it answers `error: not an emulator`. By hand:
-`adb shell am broadcast -n dev.wadackel.caretto/.ui.testeditor.ScenarioReceiver --es setup <base64 JSON>`;
+`tools/emu adb shell am broadcast -n dev.wadackel.caretto/.ui.testeditor.ScenarioReceiver --es setup <base64 JSON>`;
 the class comment lists the fields.
 
 A step passes when the editor reports the expected state and keeps it for a moment. A step that
@@ -251,8 +268,8 @@ that needs it so far. The `hyper-standin-*` scenarios bind the Hyper operations 
 Ctrl+Alt+Shift and the same key, because Meta cannot be sent. Their pass checks the operations,
 not the Hyper chord, and the summary line counts them separately for that reason.
 
-The adb server on the owner's Mac has restarted in the middle of a run more than once. The runner
-follows logcat again when its stream ends, and a case that failed on adb itself rather than on a
+A restart of the shared adb server no longer reaches the emulator, but its own server can still go
+down (a `killall adb`) or drop the emulator for a moment. The runner follows logcat again when its stream ends, and a case that failed on adb itself rather than on a
 step runs once more; both leave a `~~~~~` line in the log. When logcat has still not come back
 after 30 seconds, twice, the run stops there and the summary counts the rest as not run.
 
@@ -308,7 +325,9 @@ process group and finishes, because a cancelled run uninstalls on its way out an
 after the restore.
 
 It never picks a device: the serial is required, and `ANDROID_SERIAL` is set from it for Gradle,
-so with the phone and emulators attached at once only the named one is touched. If the process is
+so with the phone and emulators attached at once only the named one is touched. It reaches only
+devices on the shared adb server, so not `tools/emu`'s emulator, which is on a server of its own;
+an emulator for it has to be booted some other way. If the process is
 killed before it restores, the backup is still there, and `restore` puts it back. Gradle runs on
 after such a kill and uninstalls when the tests end, so run `restore` once Gradle has finished; it
 refuses while the test package is still installed (when no Gradle run is left and the package

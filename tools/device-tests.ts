@@ -19,11 +19,12 @@ import {
   REPO_ROOT,
   SERVICE,
   adb,
+  adbDevices,
+  adbRun,
   enableService,
   expandEntry,
   grantTilePermission,
   must,
-  run,
   serviceEntries,
 } from "./emu.ts";
 
@@ -58,7 +59,7 @@ const sha256 = (text: string) => createHash("sha256").update(text).digest("hex")
 
 /** `adb shell` keeps the remote exit status, which `exec-out` loses; no tty, so no CRLF either. */
 async function shell(device: Device, ...args: string[]): Promise<RunResult> {
-  return run(["adb", "-s", device.serial, "shell", ...args]);
+  return adbRun(device, ["shell", ...args]);
 }
 
 async function deviceSha256(device: Device): Promise<string> {
@@ -100,11 +101,7 @@ async function installed(device: Device, pkg: string): Promise<boolean> {
  * own choice, or ANDROID_SERIAL left over in a shell, would put the uninstall somewhere else.
  */
 async function requireAttached(device: Device): Promise<void> {
-  const devices = await must(["adb", "devices"]);
-  const state = devices
-    .split("\n")
-    .map((line) => line.trim().split(/\s+/))
-    .find(([serial]) => serial === device.serial)?.[1];
+  const state = (await adbDevices(device)).get(device.serial);
   if (state !== "device") {
     throw new Error(`${device.serial} is ${state ? `in state ${state}` : "not attached"}; see adb devices`);
   }
@@ -224,7 +221,8 @@ export async function restore(device: Device, saved: Saved): Promise<string[]> {
   log(`writing ${PREFS} back`);
   // A leftover .bak is what SharedPreferences loads in place of the file, so it goes too.
   const write = `run-as ${PACKAGE} sh -c 'mkdir -p shared_prefs && rm -f ${PREFS}.bak && cat > ${PREFS}'`;
-  await must(["adb", "-s", device.serial, "shell", write], { stdin: saved.prefs });
+  const written = await adbRun(device, ["shell", write], { stdin: saved.prefs });
+  if (written.code !== 0) throw new Error(`writing ${PREFS} failed: ${(written.stderr || written.stdout).trim()}`);
   if ((await deviceSha256(device)) !== saved.prefsSha256) throw new Error(`${PREFS} was written back wrong`);
 
   if (saved.tilePermission) {
@@ -354,8 +352,10 @@ async function restoreBackup(device: Device, dir: string): Promise<number> {
 async function main(argv: string[]): Promise<number> {
   const [command, serial, ...rest] = argv;
   if (serial !== undefined && serial !== "" && !serial.startsWith("-")) {
-    if (command === "run") return runTests({ serial }, rest);
-    if (command === "restore" && rest.length === 1) return restoreBackup({ serial }, rest[0]!);
+    // The phone is on the shared adb server; tools/emu's emulator is not, so it cannot be named here.
+    const device: Device = { serial, adbServer: "shared" };
+    if (command === "run") return runTests(device, rest);
+    if (command === "restore" && rest.length === 1) return restoreBackup(device, rest[0]!);
   }
   console.error(USAGE);
   return 2;
