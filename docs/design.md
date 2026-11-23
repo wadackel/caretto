@@ -70,13 +70,18 @@ wallpaper, since an app whose colours change from phone to phone cannot be recog
 | Background | `#FBFAF7` | `#131116` | Every page, and the window before the first frame |
 | Row | `#F1EEF4` | `#1D1A22` | The ground of each row and of the status row |
 | Ink | `#1D1B20` | `#EBE7F0` | Text, the add button, the snackbar |
-| Muted | `#6B6573` | `#A29CAB` | Detail lines, section labels, modifier keys |
+| Muted | `#625C6A` | `#A29CAB` | Detail lines, section labels, modifier keys |
 | Accent | `#6A4BD0` | `#CBB6FF` | Switches, text buttons, the selected row in the two-pane Settings |
 | Track | `#CFC8D8` | `#433D4C` | A switch that is off, the outline of the capture box |
 | Sheet | `#FFFFFF` | `#1B1820` | Sheets from the bottom |
 | Running | `#2F7D4F` | `#7FD3A0` | The status dot while remapping |
 | Waiting | `#9A6A12` | `#E8B86A` | The status dot while connecting |
 | Stopped | `#B3261E` | `#F2B8B5` | The status dot while off, and Remove |
+
+Muted text is always below the large-text size, so it has to reach 4.5:1 on every ground it sits
+on at rest, and the darkest of those are a modifier key's fill (Ink at 7% over Row) and the
+selected row, not the background. The light `#625C6A` gives 4.9:1 and 4.8:1 there; a grey as light
+as `#6B6573` still passes on the background but falls to 4.3:1 and 4.1:1 on those two.
 
 Violet stays in the mark and in the few controls listed above. It is not mixed into backgrounds
 and it does not colour the keys.
