@@ -305,16 +305,41 @@ class Runner {
     return false;
   }
 
-  private async act(step: Step, editor: EditorName, before: EditorState): Promise<void> {
-    if ("type" in step) return typeText(this.config, step.type);
-    if ("press" in step) return press(this.config, step.press);
-    if ("hold" in step) return hold(this.config, step.hold, step.ms);
+  private async openCaptureSheet(): Promise<void> {
     const mark = this.log.mark;
     await adb(this.config, "shell", "am", "start", "-W", "-n", MAIN_ACTIVITY);
     if (!(await this.tapText("Add binding", false))) throw new StepFailure("no Add binding button on the key map");
     if (!(await this.log.waitForCaretto((line) => line.includes("capture mode on"), mark, LAND_MS))) {
       throw new StepFailure("the capture sheet did not open");
     }
+  }
+
+  private async coverCapture(cover: "recents" | "shade", editor: EditorName, before: EditorState): Promise<void> {
+    await this.openCaptureSheet();
+    const opened = this.log.mark;
+    // The sheet's window takes focus a moment after it opens; capture must survive that.
+    await sleep(UNCHANGED_MS);
+    const ended = (line: string) => line.includes("capture mode off");
+    if (this.log.sawCaretto(ended, opened)) throw new StepFailure("capture ended before anything covered the sheet");
+    const covered = this.log.mark;
+    if (cover === "recents") {
+      await adb(this.config, "shell", "input", "keyevent", "KEYCODE_APP_SWITCH");
+    } else {
+      await adb(this.config, "shell", "cmd", "statusbar", "expand-notifications");
+    }
+    const endedInTime = await this.log.waitForCaretto(ended, covered, LAND_MS);
+    if (cover === "shade") await adb(this.config, "shell", "cmd", "statusbar", "collapse");
+    if (!endedInTime) throw new StepFailure(`capture went on while ${cover === "recents" ? "Recents" : "the notification shade"} covered the sheet`);
+    await this.openTestEditor();
+    await this.focus(editor, before);
+  }
+
+  private async act(step: Step, editor: EditorName, before: EditorState): Promise<void> {
+    if ("type" in step) return typeText(this.config, step.type);
+    if ("press" in step) return press(this.config, step.press);
+    if ("hold" in step) return hold(this.config, step.hold, step.ms);
+    if ("coverCapture" in step) return this.coverCapture(step.coverCapture, editor, before);
+    await this.openCaptureSheet();
     const pressed = this.log.mark;
     await press(this.config, step.capture);
     if (!(await this.tapText(step.pick, false))) {
@@ -515,6 +540,7 @@ function describeStep(step: Step): string {
   if ("type" in step) return `type ${JSON.stringify(step.type)}`;
   if ("press" in step) return `press ${step.press}`;
   if ("hold" in step) return `hold ${step.hold} ${step.ms}ms`;
+  if ("coverCapture" in step) return `cover the capture sheet with ${step.coverCapture}`;
   return `capture ${step.capture}, pick ${JSON.stringify(step.pick)}`;
 }
 
