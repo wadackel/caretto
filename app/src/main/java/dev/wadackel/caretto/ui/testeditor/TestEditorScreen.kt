@@ -28,7 +28,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.SideEffect
@@ -50,6 +49,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import dev.wadackel.caretto.R
 import dev.wadackel.caretto.core.Prefs
+import dev.wadackel.caretto.ui.AccentTextButton
 import dev.wadackel.caretto.ui.CarettoSwitch
 import dev.wadackel.caretto.ui.GroupInset
 import dev.wadackel.caretto.ui.HelpText
@@ -174,8 +174,8 @@ private fun NativeField(label: String, logName: String, multiLine: Boolean) {
                 },
             )
             Row {
-                TextButton(onClick = { view?.setText(SAMPLE) }) { Text(stringResource(R.string.insert_sample)) }
-                TextButton(onClick = { view?.setText("") }) { Text(stringResource(R.string.clear)) }
+                AccentTextButton(stringResource(R.string.insert_sample), onClick = { view?.setText(SAMPLE) })
+                AccentTextButton(stringResource(R.string.clear), onClick = { view?.setText("") })
             }
         }
     }
@@ -213,8 +213,8 @@ private fun ComposeStateField() {
                     .onPreviewKeyEvent { probe.reportKey(it.nativeKeyEvent); false },
             )
             Row {
-                TextButton(onClick = { state.setTextAndPlaceCursorAtEnd(SAMPLE) }) { Text(stringResource(R.string.insert_sample)) }
-                TextButton(onClick = { state.clearText() }) { Text(stringResource(R.string.clear)) }
+                AccentTextButton(stringResource(R.string.insert_sample), onClick = { state.setTextAndPlaceCursorAtEnd(SAMPLE) })
+                AccentTextButton(stringResource(R.string.clear), onClick = { state.clearText() })
             }
         }
     }
@@ -247,12 +247,11 @@ private fun ComposeValueField() {
                     .onPreviewKeyEvent { probe.reportKey(it.nativeKeyEvent); false },
             )
             Row {
-                TextButton(
-                    onClick = {
-                        value = TextFieldValue(SAMPLE.lineSequence().first(), TextRange(0))
-                    },
-                ) { Text(stringResource(R.string.insert_sample)) }
-                TextButton(onClick = { value = TextFieldValue() }) { Text(stringResource(R.string.clear)) }
+                AccentTextButton(
+                    stringResource(R.string.insert_sample),
+                    onClick = { value = TextFieldValue(SAMPLE.lineSequence().first(), TextRange(0)) },
+                )
+                AccentTextButton(stringResource(R.string.clear), onClick = { value = TextFieldValue() })
             }
         }
     }

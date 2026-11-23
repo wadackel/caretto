@@ -1,7 +1,10 @@
 package dev.wadackel.caretto.ui.theme
 
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.material.ripple.RippleAlpha
+import androidx.compose.material3.LocalRippleConfiguration
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.RippleConfiguration
 import androidx.compose.material3.Typography
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
@@ -137,7 +140,16 @@ private val CarettoTypography = Typography(
     labelSmall = sans(11.5f, FontWeight.Medium),
 )
 
-private val LocalCarettoColors = staticCompositionLocalOf { Light }
+internal val LocalCarettoColors = staticCompositionLocalOf { Light }
+
+/**
+ * Material's state-layer opacities, except focus: a focused control is shown by the ring that
+ * `focusRing` draws instead. The stock 10% tint reached only 1.2:1, and laid over a row it pulled
+ * Muted text below 4.5:1.
+ */
+private val NoFocusTint = RippleConfiguration(
+    rippleAlpha = RippleAlpha(draggedAlpha = 0.16f, focusedAlpha = 0f, hoveredAlpha = 0.08f, pressedAlpha = 0.1f),
+)
 
 object Caretto {
     val colors: CarettoColors
@@ -152,7 +164,7 @@ fun CarettoTheme(
     content: @Composable () -> Unit,
 ) {
     val colors = if (darkTheme) Dark else Light
-    CompositionLocalProvider(LocalCarettoColors provides colors) {
+    CompositionLocalProvider(LocalCarettoColors provides colors, LocalRippleConfiguration provides NoFocusTint) {
         MaterialTheme(
             colorScheme = colors.toScheme(darkTheme),
             typography = CarettoTypography,

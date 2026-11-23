@@ -45,6 +45,7 @@ import dev.wadackel.caretto.core.MappedAction
 import dev.wadackel.caretto.ui.AccentTextButton
 import dev.wadackel.caretto.ui.CarettoSwitch
 import dev.wadackel.caretto.ui.ChordKeys
+import dev.wadackel.caretto.ui.FocusRingOffset
 import dev.wadackel.caretto.ui.GroupInset
 import dev.wadackel.caretto.ui.GroupRow
 import dev.wadackel.caretto.ui.HelpText
@@ -55,6 +56,7 @@ import dev.wadackel.caretto.ui.RowText
 import dev.wadackel.caretto.ui.SectionLabel
 import dev.wadackel.caretto.ui.Spacing
 import dev.wadackel.caretto.ui.describe
+import dev.wadackel.caretto.ui.focusRing
 import dev.wadackel.caretto.ui.operationGroup
 import dev.wadackel.caretto.ui.operationLabel
 import dev.wadackel.caretto.ui.theme.Caretto
@@ -232,6 +234,8 @@ private fun StatusRow(
             ServiceState.Connecting -> WaitingDots(colors.warn)
             ServiceState.Stopped -> Button(
                 onClick = onOpenAccessibilitySettings,
+                // The ring's corners are the button's 8 dp plus the distance out to the stroke's middle.
+                modifier = Modifier.focusRing(RoundedCornerShape(11.dp), outset = FocusRingOffset, height = ButtonDefaults.MinHeight),
                 shape = RoundedCornerShape(8.dp),
                 contentPadding = PaddingValues(horizontal = Spacing.md, vertical = Spacing.sm),
                 colors = ButtonDefaults.buttonColors(containerColor = colors.ink, contentColor = colors.background),
