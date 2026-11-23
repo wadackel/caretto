@@ -30,7 +30,13 @@ export type Action =
    * Opens the key map's capture sheet over the test editor's task, presses the chord, picks the
    * operation in the picker that follows, and focuses the editor again in the state it had.
    */
-  | { capture: string; pick: string };
+  | { capture: string; pick: string }
+  /**
+   * Opens the capture sheet the same way, covers it with Recents or the notification shade, which
+   * must end capture, presses the chord there, which Caretto must pass through rather than hand to
+   * the hidden sheet, and focuses the editor again in the state it had.
+   */
+  | { coverCapture: "recents" | "shade"; chord: string };
 
 export type Step = Action & {
   expect?: Expectation;
@@ -276,6 +282,18 @@ export const SCENARIOS: Scenario[] = [
     steps: [
       { capture: "ctrl+h", pick: "Move forward", expect: "a|bc" },
       { press: "ctrl+h", expect: "ab|c" },
+    ],
+  },
+  {
+    id: "capture-covered",
+    covers: "Recents or the notification shade over the capture sheet ends capture, and a chord pressed there is not swallowed",
+    editors: ["edittext-multiline"],
+    start: "a|bc",
+    steps: [
+      { coverCapture: "recents", chord: "ctrl+b", expect: "a|bc" },
+      { press: "ctrl+b", expect: "|abc" },
+      { coverCapture: "shade", chord: "ctrl+b", expect: "|abc" },
+      { press: "ctrl+f", expect: "a|bc" },
     ],
   },
 ];

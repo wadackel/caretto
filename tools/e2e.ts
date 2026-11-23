@@ -275,7 +275,7 @@ class Runner {
   /**
    * Taps the node whose text or content description is exactly [text], scrolling down to find it
    * when [scroll] is set, and otherwise looking again while a sheet is still sliding in. Only the
-   * capture step uses it, to reach the key map's controls, never to read a result. A dump between
+   * capture and cover steps use it, to reach the key map's controls, never to read a result. A dump between
    * chords is the price of driving the real sheets rather than a debug-only way into them.
    */
   private async tapText(text: string, scroll: boolean): Promise<boolean> {
@@ -305,16 +305,74 @@ class Runner {
     return false;
   }
 
-  private async act(step: Step, editor: EditorName, before: EditorState): Promise<void> {
-    if ("type" in step) return typeText(this.config, step.type);
-    if ("press" in step) return press(this.config, step.press);
-    if ("hold" in step) return hold(this.config, step.hold, step.ms);
+  /** Opens the sheet and returns the log mark from before it opened. */
+  private async openCaptureSheet(): Promise<number> {
     const mark = this.log.mark;
     await adb(this.config, "shell", "am", "start", "-W", "-n", MAIN_ACTIVITY);
     if (!(await this.tapText("Add binding", false))) throw new StepFailure("no Add binding button on the key map");
     if (!(await this.log.waitForCaretto((line) => line.includes("capture mode on"), mark, LAND_MS))) {
       throw new StepFailure("the capture sheet did not open");
     }
+    return mark;
+  }
+
+  private async coverCapture(
+    step: { coverCapture: "recents" | "shade"; chord: string },
+    editor: EditorName,
+    before: EditorState,
+  ): Promise<void> {
+    const cover = step.coverCapture;
+    const coverName = cover === "recents" ? "Recents" : "the notification shade";
+    const opened = await this.openCaptureSheet();
+    // The sheet's window takes focus a moment after it opens; capture must survive that.
+    await sleep(UNCHANGED_MS);
+    const ended = (line: string) => line.includes("capture mode off");
+    if (this.log.sawCaretto(ended, opened)) throw new StepFailure("capture ended before anything covered the sheet");
+    const covered = this.log.mark;
+    if (cover === "recents") {
+      await adb(this.config, "shell", "input", "keyevent", "KEYCODE_APP_SWITCH");
+    } else {
+      await adb(this.config, "shell", "cmd", "statusbar", "expand-notifications");
+    }
+    let failure: unknown;
+    try {
+      if (!(await this.log.waitForCaretto(ended, covered, LAND_MS))) {
+        throw new StepFailure(`capture went on while ${coverName} covered the sheet`);
+      }
+      // No editor is behind the cover, so Caretto's own pass-through line is the trace that the
+      // chord went on to whatever is in front rather than into the hidden sheet.
+      const pressed = this.log.mark;
+      await press(this.config, step.chord);
+      const passed = `: ${carettoName(step.chord)} pass-through`;
+      if (!(await this.log.waitForCaretto((line) => line.includes(passed), pressed, LAND_MS))) {
+        throw new StepFailure(`${step.chord} pressed over ${coverName} was not passed through`);
+      }
+    } catch (error) {
+      failure = error;
+    }
+    if (cover === "shade") {
+      const collapsed = adb(this.config, "shell", "cmd", "statusbar", "collapse");
+      // A failed collapse must not replace the step's own failure, which says what broke; after a
+      // passing step it fails the step, since a shade left open would misdirect the next one.
+      if (failure === undefined) {
+        await collapsed;
+      } else {
+        await collapsed.catch((error: unknown) => {
+          this.log.write(`!!!!! collapsing the shade failed: ${error instanceof Error ? error.message : String(error)}`);
+        });
+      }
+    }
+    if (failure !== undefined) throw failure;
+    await this.openTestEditor();
+    await this.focus(editor, before);
+  }
+
+  private async act(step: Step, editor: EditorName, before: EditorState): Promise<void> {
+    if ("type" in step) return typeText(this.config, step.type);
+    if ("press" in step) return press(this.config, step.press);
+    if ("hold" in step) return hold(this.config, step.hold, step.ms);
+    if ("coverCapture" in step) return this.coverCapture(step, editor, before);
+    await this.openCaptureSheet();
     const pressed = this.log.mark;
     await press(this.config, step.capture);
     if (!(await this.tapText(step.pick, false))) {
@@ -515,6 +573,7 @@ function describeStep(step: Step): string {
   if ("type" in step) return `type ${JSON.stringify(step.type)}`;
   if ("press" in step) return `press ${step.press}`;
   if ("hold" in step) return `hold ${step.hold} ${step.ms}ms`;
+  if ("coverCapture" in step) return `cover the capture sheet with ${step.coverCapture}, press ${step.chord}`;
   return `capture ${step.capture}, pick ${JSON.stringify(step.pick)}`;
 }
 

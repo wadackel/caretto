@@ -37,6 +37,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
@@ -50,6 +51,7 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.liveRegion
@@ -76,6 +78,8 @@ import dev.wadackel.caretto.ui.operationGroup
 import dev.wadackel.caretto.ui.operationLabel
 import dev.wadackel.caretto.ui.theme.Caretto
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.dropWhile
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
 /** Which sheet the key map is showing, if any. Exclusive by construction. */
@@ -198,6 +202,14 @@ fun CaptureSheet(
     }
 
     CarettoSheet(onDismiss) { close ->
+        // Recents and the notification shade cover the app without pausing it, so ON_PAUSE never
+        // fires for them; this sheet's window losing focus does. The activity's window cannot
+        // stand in, since it loses focus to the sheet the moment the sheet opens.
+        val window = LocalWindowInfo.current
+        LaunchedEffect(window) {
+            snapshotFlow { window.isWindowFocused }.dropWhile { !it }.first { !it }
+            if (got == null) dismiss.value()
+        }
         Column(
             modifier = Modifier
                 // Order matters, and without something focusable the key modifier never runs.
