@@ -62,8 +62,8 @@ does not reach, so run adb on it as `tools/emu adb <args>`. docs/debugging.md, "
 commands, the settings that let a second emulator run beside it, and reading the test editor's
 state from logcat.
 
-**Before merging any change that touches the service, the key map or the planning layer, run
-the emulator scenarios:**
+**`tools/e2e` runs the emulator scenarios**, and every change the agent merges waits for it to
+pass, whatever the change touches (the merge rule, under "The owner's phone").
 
 ```bash
 tools/e2e
@@ -110,9 +110,12 @@ Samsung Keyboard and Gboard, Japanese IME composition, folding, and how somethin
   own log (`logcat -s Caretto:D`).
 - **Turn verbose logging off as soon as the measurement is done.** It records every key press in
   every app, ordinary typing included (docs/debugging.md recipe 8).
-- **The agent merges once CI and the end-to-end run pass; the phone is tried after the merge.**
-  This holds for a change that has to be tried on the phone too (IME-dependent behaviour, anything
-  specific to the Fold, how something feels, how the UI looks): it does not wait for the owner.
+- **The agent merges once CI and `tools/e2e` pass; the phone is tried after the merge.** Both
+  have to pass for every change the agent merges, whatever it touches: the service, the UI, the
+  tools, the tests or only the documents. The run that counts is a full one, without `--scenario`,
+  `--editor` or `--no-build`, on the commit being merged. A change that has to be tried on the phone
+  (IME-dependent behaviour, anything specific to the Fold, how something feels, how the UI looks)
+  is merged the same way: it does not wait for the owner.
   The owner tries it by installing the merged `main` on the phone, so the PR body of such a change
   says what to try there; when unclear whether a change needs the phone, say what to try. The
   instrumentation tests a change to `core/TextBoundary.kt` needs are among these: name them in the
