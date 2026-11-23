@@ -57,7 +57,8 @@ tools on `PATH`. The SDK itself stays outside Nix, at `ANDROID_HOME`.
 **`tools/emu start` brings up a dedicated emulator with Caretto installed and enabled**, and
 `tools/emu press ctrl+a` sends a chord to it as kernel input from its built-in keyboard, with
 `deviceId=0`, which `KeyFilter.isPhysicalKeyboardEvent` admits, so Caretto remaps it. It never
-touches another AVD or the phone. docs/debugging.md, "The dedicated emulator", covers the
+touches another AVD or the phone: the emulator is on an adb server of its own, which plain `adb`
+does not reach, so run adb on it as `tools/emu adb <args>`. docs/debugging.md, "The dedicated emulator", covers the
 commands, the settings that let a second emulator run beside it, and reading the test editor's
 state from logcat.
 

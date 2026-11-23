@@ -48,14 +48,17 @@ fails the build.
 
 ## The dedicated emulator and the scenarios
 
-`tools/emu start` brings up an emulator of its own (`caretto_e2e`, on port 5570) with Caretto
+`tools/emu start` brings up an emulator of its own (`caretto_e2e`, on port 5600) with Caretto
 installed and enabled, and `tools/emu press ctrl+a` sends a chord to it from its built-in keyboard.
 Those keys come in as a physical keyboard's, so Caretto remaps them
-([findings.md](./findings.md) F20). It never touches another AVD or a phone.
+([findings.md](./findings.md) F20). It never touches another AVD or a phone: the emulator is on an
+adb server of its own, which nothing else is on, so plain `adb` does not see it; reach it with
+`tools/emu adb <args>`.
 
 ```bash
 tools/emu start           # create the AVD if missing, boot it, install Caretto and enable it
 tools/emu press ctrl+a    # press and release a chord
+tools/emu adb shell ...   # adb on that emulator, through its own adb server
 tools/e2e                 # run every scenario in every test editor it applies to
 tools/e2e --list          # the scenario ids; --scenario <id> and --editor <name> narrow a run
 ```

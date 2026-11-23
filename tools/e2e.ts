@@ -14,6 +14,7 @@ import {
   PACKAGE,
   REPO_ROOT,
   adb,
+  adbCommand,
   hold,
   loadConfig,
   press,
@@ -78,16 +79,16 @@ class Logcat {
   }
 
   /**
-   * The stream ends when the adb server restarts, which this machine's has done mid-run; every
-   * later case would then wait for lines that never come, so it is followed again from the newest
-   * line already read.
+   * The stream ends when the adb server restarts or drops the emulator for a moment; every later
+   * case would then wait for lines that never come, so it is followed again from the newest line
+   * already read.
    */
   private follow(config: EmulatorConfig): void {
     const since = this.lastStamp === "" ? [] : ["-T", this.lastStamp];
-    this.proc = Bun.spawn(
-      ["adb", "-s", config.serial, "logcat", "-v", "time", ...since, "Caretto:D", "TestEditor:D", "AndroidRuntime:E", "*:S"],
-      { stdout: "pipe", stderr: "ignore", env: { ...process.env } },
-    );
+    const { cmd, env } = adbCommand(config, [
+      "logcat", "-v", "time", ...since, "Caretto:D", "TestEditor:D", "AndroidRuntime:E", "*:S",
+    ]);
+    this.proc = Bun.spawn(cmd, { stdout: "pipe", stderr: "ignore", env });
     void this.read(this.proc.stdout as ReadableStream<Uint8Array>).then(async () => {
       if (this.stopped) return;
       this.live = false;
@@ -468,8 +469,8 @@ class Runner {
   }
 
   /**
-   * A case that failed on adb rather than on what the editor showed runs once more: this machine's
-   * adb server restarts now and then, and the emulator drops off `adb devices` for a moment.
+   * A case that failed on adb rather than on what the editor showed runs once more: when its adb
+   * server restarts, the emulator is off `adb devices` until it registers again.
    */
   async runWithRetry(testCase: Case): Promise<Outcome | undefined> {
     const first = await this.run(testCase);
@@ -641,7 +642,8 @@ async function main(argv: string[]): Promise<number> {
   }
 
   const config = loadConfig();
-  // Every child inherits it, so nothing that reaches for a device finds a connected phone.
+  // Every child inherits it, so nothing that reaches for a device on the shared server, where the
+  // phone is, finds one.
   process.env.ANDROID_SERIAL = config.serial;
   // Straight after an adb server restart the emulator is missing from `adb devices` for a moment,
   // and start then takes it for stopped and refuses its busy gRPC port; once more settles that.

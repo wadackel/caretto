@@ -3,20 +3,24 @@
  * to it as kernel input, and stop it. `tools/emu` is the entry point; it enters the devShell and
  * runs this file. Everything is exported so a scenario runner can drive the same functions.
  *
- * Every adb call names this emulator's serial, and that serial is checked to belong to the AVD
- * configured here before anything is installed or sent, so nothing reaches another emulator or a
- * phone that happens to be connected.
+ * The emulator registers with an adb server of its own, not the shared one on 5037, and every adb
+ * call goes to that server through adbCommand. A restart of the shared server, which other
+ * projects' tools do, cannot cut a run, and the phone and other emulators are not on this server
+ * to be reached by mistake. Every call also names the emulator's serial, and that serial is checked
+ * to belong to the AVD configured here before anything is installed or sent.
  */
 import { spawn as spawnChild } from "node:child_process";
 import { existsSync, mkdirSync, openSync, readFileSync, writeFileSync } from "node:fs";
 import { createServer } from "node:net";
 import { homedir } from "node:os";
-import { dirname, join } from "node:path";
+import { basename, dirname, join } from "node:path";
 
 export const PACKAGE = "dev.wadackel.caretto";
 export const SERVICE = `${PACKAGE}/${PACKAGE}.service.CarettoService`;
 const TEST_EDITOR = `${PACKAGE}/.ui.TestEditorActivity`;
 const AVD_PREFIX = "caretto_";
+/** The last port adb's emulator scan reaches by default (`ADB_LOCAL_TRANSPORT_MAX_PORT`). */
+const SCAN_MAX_PORT = 5585;
 
 export const REPO_ROOT = dirname(import.meta.dir);
 
@@ -25,6 +29,8 @@ export type EmulatorConfig = {
   consolePort: number;
   grpcPort: number;
   serial: string;
+  /** The adb server this emulator registers with and every call goes through. */
+  adbServer: number;
   systemImage: string;
   device: string;
   bootTimeoutSeconds: number;
@@ -58,9 +64,12 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): EmulatorConfig
     throw new Error(`CARETTO_AVD must start with ${AVD_PREFIX}, got ${avd}`);
   }
 
-  const consolePort = intFromEnv(env, "CARETTO_EMU_PORT", 5570);
-  if (consolePort < 5554 || consolePort > 5682 || consolePort % 2 !== 0) {
-    throw new Error(`CARETTO_EMU_PORT must be an even number from 5554 to 5682, got ${consolePort}`);
+  // The emulator takes even ports up to 5682, and its adb port is the next one up. Every adb server
+  // that does not turn it off connects to 5555–5585 by itself, so an emulator there would be on
+  // the shared server too, and in the hands of anything else that uses it.
+  const consolePort = intFromEnv(env, "CARETTO_EMU_PORT", 5600);
+  if (consolePort < SCAN_MAX_PORT + 1 || consolePort > 5682 || consolePort % 2 !== 0) {
+    throw new Error(`CARETTO_EMU_PORT must be an even number from ${SCAN_MAX_PORT + 1} to 5682, got ${consolePort}`);
   }
 
   return {
@@ -68,6 +77,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): EmulatorConfig
     consolePort,
     grpcPort: intFromEnv(env, "CARETTO_GRPC_PORT", consolePort + 3000),
     serial: `emulator-${consolePort}`,
+    adbServer: consolePort + 10000,
     systemImage: env.CARETTO_SYSTEM_IMAGE || `system-images;android-36;google_apis;${defaultAbi()}`,
     device: env.CARETTO_AVD_DEVICE || "pixel_7",
     bootTimeoutSeconds: intFromEnv(env, "CARETTO_BOOT_TIMEOUT", 600),
@@ -81,11 +91,19 @@ function log(message: string): void {
 }
 
 export type RunResult = { code: number; stdout: string; stderr: string };
+type RunOptions = { stdin?: string; inherit?: boolean };
 
-export async function run(cmd: string[], options: { stdin?: string; inherit?: boolean } = {}): Promise<RunResult> {
+export async function run(cmd: string[], options: RunOptions = {}): Promise<RunResult> {
+  if (basename(cmd[0] ?? "") === "adb") {
+    throw new Error(`${cmd.join(" ")}: run adb through adbRun or adb in tools/emu.ts, which pick its server`);
+  }
+  // Bun.spawn's default is the environment as it was at startup, without later assignments.
+  return spawnAndWait(cmd, { ...process.env }, options);
+}
+
+async function spawnAndWait(cmd: string[], env: NodeJS.ProcessEnv, options: RunOptions): Promise<RunResult> {
   const proc = Bun.spawn(cmd, {
-    // Bun.spawn's default is the environment as it was at startup, without later assignments.
-    env: { ...process.env },
+    env,
     stdin: options.stdin === undefined ? "ignore" : new Blob([options.stdin]),
     // Shown output goes to stderr, so stdout carries only the one summary line a caller reads.
     stdout: options.inherit ? 2 : "pipe",
@@ -99,21 +117,75 @@ export async function run(cmd: string[], options: { stdin?: string; inherit?: bo
   return { code, stdout, stderr };
 }
 
-export async function must(cmd: string[], options: { stdin?: string; inherit?: boolean } = {}): Promise<string> {
-  const result = await run(cmd, options);
+function checked(cmd: string[], result: RunResult): string {
   if (result.code !== 0) {
     throw new Error(`${cmd.join(" ")} exited ${result.code}\n${result.stderr || result.stdout}`.trim());
   }
   return result.stdout;
 }
 
+export async function must(cmd: string[], options: RunOptions = {}): Promise<string> {
+  return checked(cmd, await run(cmd, options));
+}
+
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
-/** An adb target: every call names its serial. An EmulatorConfig is one. */
-export type Device = { serial: string };
+/**
+ * An adb target: its serial, and the adb server it is on, a port of its own or the shared one the
+ * environment names (5037 unless ANDROID_ADB_SERVER_PORT says otherwise). An EmulatorConfig is one.
+ */
+export type Device = { serial: string; adbServer: number | "shared" };
 
-export function adb(device: Device, ...args: string[]): Promise<string> {
-  return must(["adb", "-s", device.serial, ...args]);
+/**
+ * The environment adb needs to reach [server]. An adb client that finds no server starts one with
+ * its own environment, so every call carries what that server must be started with: no scan of
+ * 5555–5585, where other emulators are, and no mDNS or USB, where the phone is.
+ */
+function adbEnvironment(server: Device["adbServer"]): NodeJS.ProcessEnv {
+  if (server === "shared") return { ...process.env };
+  // adb reads ADB_SERVER_SOCKET before ANDROID_ADB_SERVER_PORT, and takes the host from
+  // ANDROID_ADB_SERVER_ADDRESS, so either left in a shell would send every call to another server.
+  const { ADB_SERVER_SOCKET: _socket, ANDROID_ADB_SERVER_ADDRESS: _address, ...inherited } = process.env;
+  return {
+    ...inherited,
+    ANDROID_ADB_SERVER_PORT: String(server),
+    // Below the first port it would try, so it tries none.
+    ADB_LOCAL_TRANSPORT_MAX_PORT: "5553",
+    ADB_MDNS: "0",
+    ADB_USB: "0",
+  };
+}
+
+/** The command line and environment for adb on [device]; every adb process in tools/ starts from this. */
+export function adbCommand(device: Device, args: string[]): { cmd: string[]; env: NodeJS.ProcessEnv } {
+  return { cmd: ["adb", "-s", device.serial, ...args], env: adbEnvironment(device.adbServer) };
+}
+
+export function adbRun(device: Device, args: string[], options: RunOptions = {}): Promise<RunResult> {
+  const { cmd, env } = adbCommand(device, args);
+  return spawnAndWait(cmd, env, options);
+}
+
+export async function adb(device: Device, ...args: string[]): Promise<string> {
+  return checked(adbCommand(device, args).cmd, await adbRun(device, args));
+}
+
+/** The serials on [device]'s adb server and their states, as `adb devices` lists them. */
+export async function adbDevices(device: Device): Promise<Map<string, string>> {
+  let result = await adbRun(device, ["devices"]);
+  // A server this call started lists nothing yet; an emulator registers with it about a second later.
+  if (result.code === 0 && result.stderr.includes("daemon started successfully")) {
+    await sleep(2000);
+    result = await adbRun(device, ["devices"]);
+  }
+  return new Map(
+    checked(adbCommand(device, ["devices"]).cmd, result)
+      .split("\n")
+      .slice(1)
+      .map((line) => line.trim().split(/\s+/))
+      .filter((fields): fields is [string, string] => fields.length >= 2)
+      .map(([serial, state]) => [serial, state]),
+  );
 }
 
 async function ensureSystemImage(config: EmulatorConfig): Promise<void> {
@@ -152,9 +224,7 @@ async function ensureAvd(config: EmulatorConfig): Promise<void> {
 
 /** True when this config's emulator is up; fails when its port belongs to another AVD. */
 export async function isRunning(config: EmulatorConfig): Promise<boolean> {
-  const devices = await must(["adb", "devices"]);
-  const listed = devices.split("\n").some((line) => line.split(/\s+/)[0] === config.serial);
-  if (!listed) return false;
+  if (!(await adbDevices(config)).has(config.serial)) return false;
   const name = (await adb(config, "emu", "avd", "name")).split(/\r?\n/)[0]?.trim();
   if (name !== config.avd) {
     throw new Error(`${config.serial} is running AVD ${name}, not ${config.avd}; choose another CARETTO_EMU_PORT`);
@@ -171,7 +241,7 @@ async function waitForBoot(config: EmulatorConfig, exited: () => string | undefi
   while (Date.now() < deadline) {
     const reason = exited();
     if (reason !== undefined) throw new Error(`emulator exited (${reason}) before booting; see ${logPath}`);
-    const result = await run(["adb", "-s", config.serial, "shell", "getprop", "sys.boot_completed"]);
+    const result = await adbRun(config, ["shell", "getprop", "sys.boot_completed"]);
     if (result.code === 0 && result.stdout.trim() === "1") return;
     await sleep(2000);
   }
@@ -193,7 +263,7 @@ async function boot(config: EmulatorConfig): Promise<void> {
   mkdirSync(dirname(logPath), { recursive: true });
   const out = openSync(logPath, "w");
 
-  log(`booting ${config.avd} on ${config.serial}, gRPC ${config.grpcPort}; log in ${logPath}`);
+  log(`booting ${config.avd} on ${config.serial}, adb server ${config.adbServer}, gRPC ${config.grpcPort}; log in ${logPath}`);
   // -grpc alone listens on every interface with no authentication; -grpc-use-token makes every
   // call present the token the emulator writes to its discovery file (see grpcEndpoint).
   const child = spawnChild(
@@ -209,7 +279,9 @@ async function boot(config: EmulatorConfig): Promise<void> {
       "-no-snapshot-save",
       "-gpu", "swiftshader_indirect",
     ],
-    { detached: true, stdio: ["ignore", out, out] },
+    // The emulator registers with the adb server ANDROID_ADB_SERVER_PORT names, and again whenever
+    // that server restarts.
+    { detached: true, stdio: ["ignore", out, out], env: adbEnvironment(config.adbServer) },
   );
   let exitReason: string | undefined;
   child.on("exit", (code, signal) => {
@@ -318,16 +390,18 @@ export async function start(config: EmulatorConfig, options: { build: boolean })
 }
 
 export async function stop(config: EmulatorConfig): Promise<void> {
-  if (!(await isRunning(config))) {
+  if (await isRunning(config)) {
+    await adb(config, "emu", "kill");
+    const deadline = Date.now() + 60_000;
+    while (await isRunning(config).catch(() => true)) {
+      if (Date.now() > deadline) throw new Error(`${config.avd} did not stop`);
+      await sleep(1000);
+    }
+  } else {
     log(`${config.avd} is not running`);
-    return;
   }
-  await adb(config, "emu", "kill");
-  const deadline = Date.now() + 60_000;
-  while (await isRunning(config).catch(() => true)) {
-    if (Date.now() > deadline) throw new Error(`${config.avd} did not stop`);
-    await sleep(1000);
-  }
+  // Nothing else is on it, and isRunning started it if it was not up.
+  await adb(config, "kill-server");
 }
 
 /** Linux evdev codes (input-event-codes.h). The emulator's qwerty2 layout maps them to Android keys. */
@@ -503,9 +577,11 @@ const USAGE = `usage: tools/emu <command>
   keyup <key>
   type <text>          type plain text, no modifiers, printable ASCII only
   editor               open the test editor
+  adb <args>...        adb on this emulator, through its own adb server: adb shell ..., logcat
 
 environment (defaults in brackets):
-  CARETTO_AVD [caretto_e2e]  CARETTO_EMU_PORT [5570]  CARETTO_GRPC_PORT [console port + 3000]
+  CARETTO_AVD [caretto_e2e]  CARETTO_EMU_PORT [5600, even, 5586 to 5682]
+  CARETTO_GRPC_PORT [console port + 3000]  (the adb server is on console port + 10000)
   CARETTO_SYSTEM_IMAGE [system-images;android-36;google_apis;<host abi>]
   CARETTO_AVD_DEVICE [pixel_7]  CARETTO_BOOT_TIMEOUT [600 seconds]`;
 
@@ -513,8 +589,8 @@ async function main(argv: string[]): Promise<number> {
   const [command, ...args] = argv;
   const build = !args.includes("--no-build");
   const config = loadConfig();
-  // Every child inherits it, so a Gradle task that reaches for a device finds this one and not
-  // whichever phone is also connected.
+  // Every child inherits it, so a Gradle task that reaches for a device asks for this serial, which
+  // the shared server, where the phone is, does not have.
   process.env.ANDROID_SERIAL = config.serial;
   switch (command) {
     case "start":
@@ -547,6 +623,14 @@ async function main(argv: string[]): Promise<number> {
     case "editor":
       await openTestEditor(config);
       return 0;
+    case "adb": {
+      if (args.length === 0) break;
+      // Starts the server when it is down and waits for the emulator to register with it, which a
+      // bare adb call would not, failing with `device not found` the first time.
+      await adbDevices(config);
+      const { cmd, env } = adbCommand(config, args);
+      return Bun.spawn(cmd, { env, stdio: ["inherit", "inherit", "inherit"] }).exited;
+    }
   }
   console.error(USAGE);
   return 2;
