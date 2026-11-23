@@ -72,25 +72,46 @@ fun reflowLicense(text: String): String {
     return out.toString().trim()
 }
 
-/** Names for groups whose id says little to a reader; the rest are named by rule in [groupName]. */
-private val GroupNames = mapOf(
-    "com.google.guava" to "Guava",
-    "org.jetbrains" to "JetBrains Annotations",
-    "org.jetbrains.kotlin" to "Kotlin",
-    "org.jetbrains.kotlinx" to "Kotlin Coroutines",
-    "org.jspecify" to "JSpecify",
+/** An artifact as the generated list gives it, with the keys of its licences. */
+data class LibraryArtifact(
+    val group: String,
+    val id: String,
+    val name: String,
+    val version: String = "",
+    val licenses: List<String> = emptyList(),
+)
+
+/** A name picked for a group, and the artifacts it was picked for. */
+internal class PickedName(val name: String, val covers: Set<String>)
+
+/**
+ * Names for groups whose id says little to a reader; the rest are named by rule in [groupName].
+ * Each lists the artifacts it was picked for, because a group gains artifacts as dependencies
+ * change and a name picked for one project then files another under it: the notice test fails
+ * on an artifact missing here, and the row falls back to the rule rather than show a wrong name.
+ */
+internal val GroupNames = mapOf(
+    "com.google.guava" to PickedName("Guava", setOf("listenablefuture")),
+    "org.jetbrains" to PickedName("JetBrains Annotations", setOf("annotations")),
+    "org.jetbrains.kotlin" to PickedName("Kotlin", setOf("kotlin-stdlib")),
+    "org.jetbrains.kotlinx" to PickedName(
+        "Kotlinx",
+        setOf("kotlinx-coroutines-android", "kotlinx-coroutines-core", "kotlinx-serialization-core"),
+    ),
+    "org.jspecify" to PickedName("JSpecify", setOf("jspecify")),
 )
 
 private fun titled(segments: String) =
     segments.split('.').joinToString(" ") { if (it == "ui") "UI" else it.replaceFirstChar(Char::uppercaseChar) }
 
-/** A group added later and missing from [GroupNames] falls back to its id: plainer, still correct. */
-fun groupName(group: String, artifactNames: List<String>): String = GroupNames[group] ?: when {
-    group.startsWith("androidx.compose.") -> "Compose " + titled(group.removePrefix("androidx.compose."))
-    group.startsWith("androidx.") -> "AndroidX " + titled(group.removePrefix("androidx."))
-    artifactNames.size == 1 -> artifactNames.single()
-    else -> group
-}
+/** A group without a name picked for all its artifacts falls back to its id: plainer, still correct. */
+fun groupName(group: String, artifacts: List<LibraryArtifact>): String =
+    GroupNames[group]?.takeIf { picked -> artifacts.all { it.id in picked.covers } }?.name ?: when {
+        group.startsWith("androidx.compose.") -> "Compose " + titled(group.removePrefix("androidx.compose."))
+        group.startsWith("androidx.") -> "AndroidX " + titled(group.removePrefix("androidx."))
+        artifacts.size == 1 -> artifacts.single().name
+        else -> group
+    }
 
 /** Short names for the row's end; a licence missing here shows its SPDX id. */
 private val LicenseLabels = mapOf("Apache-2.0" to "Apache 2.0", "MIT" to "MIT", "OFL-1.1" to "OFL 1.1")
@@ -108,18 +129,17 @@ fun parseLibraryDefinitions(json: String): List<OpenSourceNotice> {
         NoticeLicense(LicenseLabels[key] ?: key, license.optString("name", key), reflowLicense(license.optString("content")))
     }
     val libraries = root.getJSONArray("libraries")
-    data class Artifact(val group: String, val id: String, val version: String, val name: String, val licenses: List<String>)
     val artifacts = (0 until libraries.length()).map { i ->
         val library = libraries.getJSONObject(i)
         val (group, id) = library.getString("uniqueId").split(":", limit = 2)
         val keys = library.optJSONArray("licenses")?.let { a -> (0 until a.length()).map(a::getString) }.orEmpty()
-        Artifact(group, id, library.optString("artifactVersion"), library.optString("name", id), keys)
+        LibraryArtifact(group, id, library.optString("name", id), library.optString("artifactVersion"), keys)
     }
     // A key without a text still makes an entry, empty, so the test that every notice has its text fails.
     val notice = { key: String -> licenses[key] ?: NoticeLicense(key, key, "") }
     return artifacts.groupBy { it.group }.map { (group, members) ->
         OpenSourceNotice(
-            name = groupName(group, members.map { it.name }),
+            name = groupName(group, members),
             detail = group,
             parts = members.map { if (it.version.isEmpty()) it.id else "${it.id} ${it.version}" },
             licenses = members.flatMap { it.licenses }.distinct().map(notice),

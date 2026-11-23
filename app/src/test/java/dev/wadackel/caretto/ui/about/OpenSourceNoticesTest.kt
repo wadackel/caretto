@@ -26,12 +26,24 @@ class OpenSourceNoticesTest {
         )
     }
 
+    private fun artifacts(group: String, vararg ids: String) = ids.map { LibraryArtifact(group, it, name = it) }
+
     @Test
     fun groupsAreNamedForReaders() {
-        assertEquals("Compose UI", groupName("androidx.compose.ui", listOf("UI")))
-        assertEquals("AndroidX Arch Core", groupName("androidx.arch.core", listOf("Core")))
-        assertEquals("Kotlin Coroutines", groupName("org.jetbrains.kotlinx", listOf("a", "b")))
-        assertEquals("Thing", groupName("com.example.thing", listOf("Thing")))
+        assertEquals("Compose UI", groupName("androidx.compose.ui", listOf(LibraryArtifact("androidx.compose.ui", "ui", "UI"))))
+        assertEquals("AndroidX Arch Core", groupName("androidx.arch.core", artifacts("androidx.arch.core", "core-common")))
+        assertEquals(
+            "Kotlinx",
+            groupName("org.jetbrains.kotlinx", artifacts("org.jetbrains.kotlinx", "kotlinx-coroutines-core", "kotlinx-serialization-core")),
+        )
+        assertEquals("Thing", groupName("com.example.thing", listOf(LibraryArtifact("com.example.thing", "thing", "Thing"))))
+    }
+
+    @Test
+    fun aPickedNameGivesWayWhenTheGroupGainsAnArtifactItWasNotPickedFor() {
+        val members = artifacts("org.jetbrains", "annotations", "markdown")
+        assertEquals("JetBrains Annotations", groupName("org.jetbrains", members.take(1)))
+        assertEquals("org.jetbrains", groupName("org.jetbrains", members))
     }
 
     @Test
@@ -58,5 +70,23 @@ class OpenSourceNoticesTest {
         }
         assertTrue(notices.any { it.name == "AndroidX Lifecycle" })
         assertFalse(notices.any { it.parts.any { part -> part.contains("-bom") } })
+    }
+
+    /**
+     * A dependency that brings an artifact into a group with a picked name fails here, so the name
+     * is checked against what the group now holds instead of the row quietly showing the group id.
+     */
+    @Test
+    fun everyPickedNameCoversTheArtifactsTheBuildShips() {
+        val notices = parseLibraryDefinitions(File(System.getProperty("caretto.libraryDefinitions")).readText())
+        for (notice in notices) {
+            val picked = GroupNames[notice.detail] ?: continue
+            assertEquals(
+                "${notice.detail} now holds ${notice.parts}: add the new ids to GroupNames if " +
+                    "\"${picked.name}\" covers them, or pick a name that does",
+                picked.name,
+                notice.name,
+            )
+        }
     }
 }

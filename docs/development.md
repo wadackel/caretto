@@ -35,7 +35,10 @@ About's open-source list is generated at build time by the AboutLibraries Gradle
 variant's dependencies, so adding or removing one changes the list on the next build. The plugin
 runs offline: licence texts come from `app/aboutlibraries/licenses/`, and
 `OpenSourceNoticesTest` fails when a dependency brings in a licence with no text there. Add the
-text as `<SPDX id>.json` beside `Apache-2.0.json`.
+text as `<SPDX id>.json` beside `Apache-2.0.json`. The test also fails when a dependency brings an
+artifact into a group whose row has a name picked by hand (`GroupNames` in
+`ui/about/OpenSourceNotices.kt`): add the artifact there if the name still covers it, or pick one
+that does.
 
 Where `java` is not on `PATH`, run Gradle as `./gw` with the same arguments. It enters the Nix
 devShell in `flake.nix`, which provides JDK 17 and puts the SDK's tools on `PATH`.
