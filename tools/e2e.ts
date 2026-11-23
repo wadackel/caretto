@@ -316,7 +316,13 @@ class Runner {
     return mark;
   }
 
-  private async coverCapture(cover: "recents" | "shade", editor: EditorName, before: EditorState): Promise<void> {
+  private async coverCapture(
+    step: { coverCapture: "recents" | "shade"; chord: string },
+    editor: EditorName,
+    before: EditorState,
+  ): Promise<void> {
+    const cover = step.coverCapture;
+    const coverName = cover === "recents" ? "Recents" : "the notification shade";
     const opened = await this.openCaptureSheet();
     // The sheet's window takes focus a moment after it opens; capture must survive that.
     await sleep(UNCHANGED_MS);
@@ -328,9 +334,21 @@ class Runner {
     } else {
       await adb(this.config, "shell", "cmd", "statusbar", "expand-notifications");
     }
-    const endedInTime = await this.log.waitForCaretto(ended, covered, LAND_MS);
-    if (cover === "shade") await adb(this.config, "shell", "cmd", "statusbar", "collapse");
-    if (!endedInTime) throw new StepFailure(`capture went on while ${cover === "recents" ? "Recents" : "the notification shade"} covered the sheet`);
+    try {
+      if (!(await this.log.waitForCaretto(ended, covered, LAND_MS))) {
+        throw new StepFailure(`capture went on while ${coverName} covered the sheet`);
+      }
+      // No editor is behind the cover, so Caretto's own pass-through line is the trace that the
+      // chord went on to whatever is in front rather than into the hidden sheet.
+      const pressed = this.log.mark;
+      await press(this.config, step.chord);
+      const passed = `: ${carettoName(step.chord)} pass-through`;
+      if (!(await this.log.waitForCaretto((line) => line.includes(passed), pressed, LAND_MS))) {
+        throw new StepFailure(`${step.chord} pressed over ${coverName} was not passed through`);
+      }
+    } finally {
+      if (cover === "shade") await adb(this.config, "shell", "cmd", "statusbar", "collapse");
+    }
     await this.openTestEditor();
     await this.focus(editor, before);
   }
@@ -339,7 +357,7 @@ class Runner {
     if ("type" in step) return typeText(this.config, step.type);
     if ("press" in step) return press(this.config, step.press);
     if ("hold" in step) return hold(this.config, step.hold, step.ms);
-    if ("coverCapture" in step) return this.coverCapture(step.coverCapture, editor, before);
+    if ("coverCapture" in step) return this.coverCapture(step, editor, before);
     await this.openCaptureSheet();
     const pressed = this.log.mark;
     await press(this.config, step.capture);
@@ -541,7 +559,7 @@ function describeStep(step: Step): string {
   if ("type" in step) return `type ${JSON.stringify(step.type)}`;
   if ("press" in step) return `press ${step.press}`;
   if ("hold" in step) return `hold ${step.hold} ${step.ms}ms`;
-  if ("coverCapture" in step) return `cover the capture sheet with ${step.coverCapture}`;
+  if ("coverCapture" in step) return `cover the capture sheet with ${step.coverCapture}, press ${step.chord}`;
   return `capture ${step.capture}, pick ${JSON.stringify(step.pick)}`;
 }
 
