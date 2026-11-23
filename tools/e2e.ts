@@ -334,6 +334,7 @@ class Runner {
     } else {
       await adb(this.config, "shell", "cmd", "statusbar", "expand-notifications");
     }
+    let failure: unknown;
     try {
       if (!(await this.log.waitForCaretto(ended, covered, LAND_MS))) {
         throw new StepFailure(`capture went on while ${coverName} covered the sheet`);
@@ -346,14 +347,22 @@ class Runner {
       if (!(await this.log.waitForCaretto((line) => line.includes(passed), pressed, LAND_MS))) {
         throw new StepFailure(`${step.chord} pressed over ${coverName} was not passed through`);
       }
-    } finally {
-      // A failed collapse must not replace the step's own failure, which says what broke.
-      if (cover === "shade") {
-        await adb(this.config, "shell", "cmd", "statusbar", "collapse").catch((error: unknown) => {
+    } catch (error) {
+      failure = error;
+    }
+    if (cover === "shade") {
+      const collapsed = adb(this.config, "shell", "cmd", "statusbar", "collapse");
+      // A failed collapse must not replace the step's own failure, which says what broke; after a
+      // passing step it fails the step, since a shade left open would misdirect the next one.
+      if (failure === undefined) {
+        await collapsed;
+      } else {
+        await collapsed.catch((error: unknown) => {
           this.log.write(`!!!!! collapsing the shade failed: ${error instanceof Error ? error.message : String(error)}`);
         });
       }
     }
+    if (failure !== undefined) throw failure;
     await this.openTestEditor();
     await this.focus(editor, before);
   }
