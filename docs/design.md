@@ -138,8 +138,12 @@ tells two chords apart.
 ### Status
 
 A dot and two lines: Remapping (green), Paused (muted), Connecting (amber, pulsing) and Not running
-(red). The row is the same height in every state, so the `Open settings` button that appears when
-the service is off never moves the key map. While running, the switch on the row pauses remapping.
+(red). At the default font size on a screen 320 dp wide or more, the row is the same height in every
+state, so the `Open settings` button that appears when the service is off never moves the key map;
+a detail wrapped onto a second line still fits. Readable text comes before that: at a larger font
+size or on a narrower screen the text wraps instead of being cut, the button or switch moves below
+it once a word no longer fits beside it, and the row grows to hold them, so its height can then
+differ between states. While running, the switch on the row pauses remapping.
 
 ### Changing things
 

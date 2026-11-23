@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -37,13 +38,19 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.Layout
+import androidx.compose.ui.layout.MeasurePolicy
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Constraints
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import dev.wadackel.caretto.R
 import dev.wadackel.caretto.core.KeyChord
@@ -182,8 +189,9 @@ private fun BindingGroup(
 }
 
 /**
- * One row whose height never changes between states, so the button that appears when the service
- * is off does not shift the key map under the finger.
+ * One row, 78 dp tall in every state at the default font size on a screen 320 dp wide or more, so
+ * the button that appears when the service is off does not shift the key map under the finger.
+ * Where the text does not fit, the row grows to hold it rather than cutting it off.
  */
 @Composable
 private fun StatusRow(
@@ -205,42 +213,105 @@ private fun StatusRow(
         ServiceState.Connecting -> colors.warn
         ServiceState.Stopped -> colors.error
     }
-    Row(
+    // Measured rather than read from the styles' lineHeight: under Android 14's non-linear font
+    // scaling the drawn line is not that sp value converted on its own.
+    val measurer = rememberTextMeasurer()
+    val firstLines = with(LocalDensity.current) {
+        val lines = measurer.measure(" ", statusTitleStyle).size.height + measurer.measure(" ", statusDetailStyle).size.height
+        lines.toDp() + DetailGap
+    }
+    Layout(
         modifier = Modifier
             .fillMaxWidth()
             .padding(start = GroupInset, end = GroupInset, top = Spacing.xs)
-            .height(78.dp)
+            .heightIn(min = 78.dp)
             .clip(RoundedCornerShape(18.dp))
             .background(colors.row)
-            .padding(horizontal = Spacing.lg),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(Spacing.md),
-    ) {
-        StatusDot(dot, pulsing = status == ServiceState.Connecting)
-        val spokenTitle = stringResource(title)
-        Column(Modifier.weight(1f).semantics(mergeDescendants = true) {}) {
-            Text(spokenTitle, style = MaterialTheme.typography.titleMedium, maxLines = 1)
-            Text(
-                stringResource(detail),
-                style = MaterialTheme.typography.bodySmall.copy(fontSize = MaterialTheme.typography.bodyMedium.fontSize),
-                color = colors.muted,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.padding(top = 2.dp),
+            // Only 8 dp, so that a detail wrapped onto a second line on a 320 dp screen still fits
+            // in 78 dp and the row keeps one height in every state there too.
+            .padding(horizontal = Spacing.lg, vertical = Spacing.sm),
+        content = {
+            StatusDot(dot, pulsing = status == ServiceState.Connecting)
+            StatusText(stringResource(title), stringResource(detail))
+            StatusControl(status, onRemapChange, onOpenAccessibilitySettings)
+        },
+        measurePolicy = statusRowMeasurePolicy(firstLines),
+    )
+}
+
+private val DetailGap = 2.dp
+
+private val statusTitleStyle: TextStyle
+    @Composable get() = MaterialTheme.typography.titleMedium
+
+private val statusDetailStyle: TextStyle
+    @Composable get() = MaterialTheme.typography.bodySmall.copy(fontSize = MaterialTheme.typography.bodyMedium.fontSize)
+
+/**
+ * Dot, text and control in a line while every word of the text fits beside the control, and the
+ * control below the text at the end otherwise, as a banner places its action. Squeezed beside
+ * `Open settings` at the largest font size, the text column had no room left even for "running".
+ * The dot is centred on the title and the detail's first line, [firstLines] tall: on the whole row
+ * it would sit beside the detail once the text wraps.
+ */
+private fun statusRowMeasurePolicy(firstLines: Dp) = MeasurePolicy { measurables, constraints ->
+    val (dot, text, control) = measurables
+    val gap = Spacing.md.roundToPx()
+    val loose = constraints.copy(minWidth = 0, minHeight = 0)
+    val dotPlaceable = dot.measure(loose)
+    val controlPlaceable = control.measure(loose)
+    val textStart = dotPlaceable.width + gap
+    val besideWidth = constraints.maxWidth - textStart - gap - controlPlaceable.width
+    val stacked = text.minIntrinsicWidth(Constraints.Infinity) > besideWidth
+    val textWidth = if (stacked) constraints.maxWidth - textStart else besideWidth
+    val textPlaceable = text.measure(loose.copy(maxWidth = textWidth.coerceAtLeast(0)))
+    val contentHeight = if (stacked) {
+        textPlaceable.height + gap + controlPlaceable.height
+    } else {
+        maxOf(dotPlaceable.height, textPlaceable.height, controlPlaceable.height)
+    }
+    val height = contentHeight.coerceIn(constraints.minHeight, constraints.maxHeight)
+    val textTop = if (stacked) (height - contentHeight) / 2 else (height - textPlaceable.height) / 2
+    val dotY = textTop + (firstLines.roundToPx() - dotPlaceable.height) / 2
+    val controlX = constraints.maxWidth - controlPlaceable.width
+    val controlY = if (stacked) textTop + textPlaceable.height + gap else (height - controlPlaceable.height) / 2
+    layout(constraints.maxWidth, height) {
+        dotPlaceable.placeRelative(0, dotY)
+        textPlaceable.placeRelative(textStart, textTop)
+        controlPlaceable.placeRelative(controlX, controlY)
+    }
+}
+
+@Composable
+private fun StatusText(title: String, detail: String) {
+    Column(Modifier.semantics(mergeDescendants = true) {}) {
+        Text(title, style = statusTitleStyle)
+        Text(
+            detail,
+            style = statusDetailStyle,
+            color = Caretto.colors.muted,
+            modifier = Modifier.padding(top = DetailGap),
+        )
+    }
+}
+
+@Composable
+private fun StatusControl(
+    status: ServiceState,
+    onRemapChange: (Boolean) -> Unit,
+    onOpenAccessibilitySettings: () -> Unit,
+) {
+    when (status) {
+        ServiceState.Remapping, ServiceState.Paused -> {
+            val label = stringResource(R.string.status_remapping)
+            CarettoSwitch(
+                checked = status == ServiceState.Remapping,
+                onCheckedChange = onRemapChange,
+                modifier = Modifier.semantics { contentDescription = label },
             )
         }
-        when (status) {
-            ServiceState.Remapping, ServiceState.Paused -> {
-                val label = stringResource(R.string.status_remapping)
-                CarettoSwitch(
-                    checked = status == ServiceState.Remapping,
-                    onCheckedChange = onRemapChange,
-                    modifier = Modifier.semantics { contentDescription = label },
-                )
-            }
-            ServiceState.Connecting -> WaitingDots(colors.warn)
-            ServiceState.Stopped -> OpenSettingsButton(onOpenAccessibilitySettings)
-        }
+        ServiceState.Connecting -> WaitingDots(Caretto.colors.warn)
+        ServiceState.Stopped -> OpenSettingsButton(onOpenAccessibilitySettings)
     }
 }
 
