@@ -44,6 +44,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import dev.wadackel.caretto.R
@@ -155,6 +157,7 @@ private fun NativeField(label: String, logName: String, multiLine: Boolean) {
                         }
                         probe.report(text, selectionStart, selectionEnd)
                         onKey = probe::reportKey
+                        accessibleName = label
                         probe.attach { text, start, end ->
                             // Focus first: taking focus moves the cursor to the end of the text.
                             requestFocus()
@@ -195,16 +198,17 @@ private fun ComposeStateField() {
         }
         onDispose { probe.detach() }
     }
-    FieldCard(
-        stringResource(R.string.field_compose_state),
-        "sel=[${selection.start},${selection.end}] len=${state.text.length}",
-    ) {
+    val label = stringResource(R.string.field_compose_state)
+    FieldCard(label, "sel=[${selection.start},${selection.end}] len=${state.text.length}") {
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             OutlinedTextField(
                 state = state,
                 lineLimits = TextFieldLineLimits.MultiLine(minHeightInLines = 5),
                 modifier = Modifier
                     .fillMaxWidth()
+                    // The label slot would draw the card's title a second time, inside the field.
+                    // Compose keeps this description on a child node, so the text is still read.
+                    .semantics { contentDescription = label }
                     .focusRequester(focus)
                     .onPreviewKeyEvent { probe.reportKey(it.nativeKeyEvent); false },
             )
@@ -229,10 +233,8 @@ private fun ComposeValueField() {
         }
         onDispose { probe.detach() }
     }
-    FieldCard(
-        stringResource(R.string.field_compose_value),
-        "sel=[${value.selection.start},${value.selection.end}] len=${value.text.length}",
-    ) {
+    val label = stringResource(R.string.field_compose_value)
+    FieldCard(label, "sel=[${value.selection.start},${value.selection.end}] len=${value.text.length}") {
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             OutlinedTextField(
                 value = value,
@@ -240,6 +242,7 @@ private fun ComposeValueField() {
                 singleLine = true,
                 modifier = Modifier
                     .fillMaxWidth()
+                    .semantics { contentDescription = label }
                     .focusRequester(focus)
                     .onPreviewKeyEvent { probe.reportKey(it.nativeKeyEvent); false },
             )

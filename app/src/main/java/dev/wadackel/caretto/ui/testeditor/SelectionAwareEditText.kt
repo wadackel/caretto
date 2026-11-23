@@ -4,6 +4,7 @@ import android.content.Context
 import android.text.Editable
 import android.text.TextWatcher
 import android.view.KeyEvent
+import android.view.accessibility.AccessibilityNodeInfo
 import android.widget.EditText
 
 /**
@@ -16,6 +17,12 @@ class SelectionAwareEditText(context: Context) : EditText(context) {
 
     var onStateChanged: ((selectionStart: Int, selectionEnd: Int, length: Int) -> Unit)? = null
     var onKey: ((KeyEvent) -> Unit)? = null
+
+    /**
+     * The field's name for a screen reader. The visible label is a Compose Text, which has no View
+     * for `labelFor` to point at, and a real hint would draw on the field.
+     */
+    var accessibleName: CharSequence? = null
 
     init {
         addTextChangedListener(
@@ -30,6 +37,11 @@ class SelectionAwareEditText(context: Context) : EditText(context) {
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
         onKey?.invoke(event)
         return super.dispatchKeyEvent(event)
+    }
+
+    override fun onInitializeAccessibilityNodeInfo(info: AccessibilityNodeInfo) {
+        super.onInitializeAccessibilityNodeInfo(info)
+        accessibleName?.let { info.hintText = it }
     }
 
     override fun onSelectionChanged(selStart: Int, selEnd: Int) {
