@@ -21,7 +21,9 @@ import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.FloatingActionButtonDefaults
 import androidx.compose.material3.Icon
@@ -30,6 +32,8 @@ import androidx.compose.material3.Snackbar
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -47,7 +51,10 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import dev.wadackel.caretto.R
 import dev.wadackel.caretto.ui.AccentTextButton
+import dev.wadackel.caretto.ui.FocusRingOffset
 import dev.wadackel.caretto.ui.PageBar
+import dev.wadackel.caretto.ui.focusRing
+import dev.wadackel.caretto.ui.offsetRingCorner
 import dev.wadackel.caretto.ui.about.AboutPage
 import dev.wadackel.caretto.ui.theme.Caretto
 import kotlinx.coroutines.launch
@@ -59,6 +66,8 @@ private const val PASS_THROUGH = "apps/pass"
 private const val SELECT_DELETE = "apps/select"
 private const val LOG = "log"
 private const val ABOUT = "about"
+
+private val FabCorner = 18.dp
 
 private fun routeOf(item: SettingsItem) = when (item) {
     is SettingsItem.Apps -> if (item.list == AppList.PassThrough) PASS_THROUGH else SELECT_DELETE
@@ -127,24 +136,37 @@ fun CarettoApp(
         contentWindowInsets = WindowInsets.statusBars,
         snackbarHost = {
             SnackbarHost(snackbars) { data ->
+                val colors = Caretto.colors
+                // Spelled out rather than Snackbar(data), whose Undo button takes no modifier and so
+                // no focus ring. The ring is in the text colour: Accent on Ink is too faint to see.
                 Snackbar(
-                    data,
+                    modifier = Modifier.padding(12.dp),
                     shape = RoundedCornerShape(10.dp),
-                    containerColor = Caretto.colors.ink,
-                    contentColor = Caretto.colors.background,
-                    actionColor = Caretto.colors.background,
-                )
+                    containerColor = colors.ink,
+                    contentColor = colors.background,
+                    action = data.visuals.actionLabel?.let { label ->
+                        {
+                            TextButton(
+                                onClick = data::performAction,
+                                colors = ButtonDefaults.textButtonColors(contentColor = colors.background),
+                                modifier = Modifier.focusRing(CircleShape, color = colors.background),
+                            ) { Text(label) }
+                        }
+                    },
+                ) { Text(data.visuals.message) }
             }
         },
         floatingActionButton = {
             if (top == HOME) {
                 FloatingActionButton(
                     onClick = { sheet = KeymapSheet.Capture() },
-                    shape = RoundedCornerShape(18.dp),
+                    shape = RoundedCornerShape(FabCorner),
                     containerColor = Caretto.colors.ink,
                     contentColor = Caretto.colors.background,
                     elevation = FloatingActionButtonDefaults.elevation(defaultElevation = 4.dp),
-                    modifier = Modifier.windowInsetsPadding(WindowInsets.navigationBars),
+                    modifier = Modifier
+                        .windowInsetsPadding(WindowInsets.navigationBars)
+                        .focusRing(RoundedCornerShape(offsetRingCorner(FabCorner)), outset = FocusRingOffset),
                 ) {
                     Icon(painterResource(R.drawable.ic_add), contentDescription = stringResource(R.string.add_binding))
                 }

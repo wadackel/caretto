@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.selection.toggleable
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -26,7 +27,21 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusEventModifierNode
+import androidx.compose.ui.focus.FocusState
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.graphics.drawOutline
+import androidx.compose.ui.graphics.drawscope.ContentDrawScope
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.translate
+import androidx.compose.ui.graphics.takeOrElse
+import androidx.compose.ui.node.CompositionLocalConsumerModifierNode
+import androidx.compose.ui.node.DrawModifierNode
+import androidx.compose.ui.node.ModifierNodeElement
+import androidx.compose.ui.node.currentValueOf
+import androidx.compose.ui.node.invalidateDraw
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
@@ -37,10 +52,12 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.isSpecified
 import androidx.compose.ui.unit.sp
 import dev.wadackel.caretto.R
 import dev.wadackel.caretto.core.KeyChord
 import dev.wadackel.caretto.ui.theme.Caretto
+import dev.wadackel.caretto.ui.theme.LocalCarettoColors
 import dev.wadackel.caretto.ui.theme.PlexMono
 
 /** The only gaps this UI uses. Anything outside the scale is a mistake, not a fine adjustment. */
@@ -57,6 +74,81 @@ val GroupInset = 12.dp
 private val RowPadding = 16.dp
 private val OuterCorner = 18.dp
 private val InnerCorner = 5.dp
+
+private val FocusRingWidth = 2.dp
+
+/** How far the ring around a filled control (a switch, the add button) sits beyond its edge. */
+val FocusRingOffset = 4.dp
+
+/** The corner of a ring [FocusRingOffset] out from a control whose own corner is [corner]. */
+fun offsetRingCorner(corner: Dp): Dp = corner + FocusRingOffset - FocusRingWidth / 2
+
+/** Height of a switch's track; the switch pads itself out to the minimum touch size around it. */
+private val SwitchTrackHeight = 32.dp
+
+/**
+ * Draws a 2 dp Accent ring, following [shape], while the control after this modifier has keyboard
+ * focus. It takes the place of Material's focus tint, which the theme turns off.
+ *
+ * The ring's outer edge lies [outset] beyond the bounds; at zero it sits just inside them, which
+ * suits a row. A filled control takes [FocusRingOffset]: a ring over its own edge would sit on Ink
+ * (the add button, `Open settings`), a step too small to see, or on a switch's Accent track. Give
+ * [height] when the control is drawn shorter than its bounds, centred in them, as a control padded
+ * out to the minimum touch size is. [color] replaces Accent on a ground too close to it, such as
+ * the Ink of the snackbar.
+ */
+fun Modifier.focusRing(
+    shape: Shape,
+    outset: Dp = 0.dp,
+    height: Dp = Dp.Unspecified,
+    color: Color = Color.Unspecified,
+): Modifier = this then FocusRingElement(shape, outset, height, color)
+
+private data class FocusRingElement(
+    val shape: Shape,
+    val outset: Dp,
+    val height: Dp,
+    val color: Color,
+) : ModifierNodeElement<FocusRingNode>() {
+    override fun create() = FocusRingNode(shape, outset, height, color)
+
+    override fun update(node: FocusRingNode) {
+        node.shape = shape
+        node.outset = outset
+        node.height = height
+        node.color = color
+        node.invalidateDraw()
+    }
+}
+
+private class FocusRingNode(var shape: Shape, var outset: Dp, var height: Dp, var color: Color) :
+    Modifier.Node(), FocusEventModifierNode, DrawModifierNode, CompositionLocalConsumerModifierNode {
+    private var focused = false
+
+    override fun onFocusEvent(focusState: FocusState) {
+        if (focusState.isFocused != focused) {
+            focused = focusState.isFocused
+            invalidateDraw()
+        }
+    }
+
+    override fun ContentDrawScope.draw() {
+        drawContent()
+        if (!focused) return
+        val stroke = FocusRingWidth.toPx()
+        val drawn = if (height.isSpecified) minOf(height.toPx(), size.height) else size.height
+        // From the bounds to the centre line of the stroke, so the outer edge lands on outset.
+        val inset = stroke / 2 - outset.toPx()
+        val ring = Size(size.width - 2 * inset, drawn - 2 * inset)
+        translate(left = inset, top = (size.height - drawn) / 2 + inset) {
+            drawOutline(
+                shape.createOutline(ring, layoutDirection, this),
+                color.takeOrElse { currentValueOf(LocalCarettoColors).accent },
+                style = Stroke(stroke),
+            )
+        }
+    }
+}
 
 /** Where a row sits in its group decides which corners are rounded fully. */
 private fun rowShape(index: Int, count: Int) = RoundedCornerShape(
@@ -102,7 +194,13 @@ fun GroupRow(
             .heightIn(min = 50.dp)
             .clip(shape)
             .background(if (selected) colors.rowSelected else colors.row)
-            .then(if (onClick != null) Modifier.clickable(onClickLabel = onClickLabel, onClick = onClick) else Modifier)
+            .then(
+                if (onClick != null) {
+                    Modifier.focusRing(shape).clickable(onClickLabel = onClickLabel, onClick = onClick)
+                } else {
+                    Modifier
+                },
+            )
             .padding(horizontal = RowPadding),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(Spacing.md),
@@ -214,7 +312,7 @@ fun CarettoSwitch(checked: Boolean, onCheckedChange: ((Boolean) -> Unit)?, modif
     Switch(
         checked = checked,
         onCheckedChange = onCheckedChange,
-        modifier = modifier,
+        modifier = modifier.focusRing(CircleShape, outset = FocusRingOffset, height = SwitchTrackHeight),
         colors = SwitchDefaults.colors(
             checkedTrackColor = colors.accent,
             checkedThumbColor = colors.thumbOn,
@@ -240,6 +338,7 @@ fun SwitchGroupRow(
     GroupRow(
         shape = shape,
         modifier = Modifier
+            .focusRing(shape)
             .toggleable(value = checked, role = Role.Switch, onValueChange = onChange)
             // Naming the node outright rather than relying on the merge to pull the title in:
             // the merged node came back unlabelled, which announces a state with no subject.
@@ -266,7 +365,7 @@ fun PageBar(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         if (onBack != null) {
-            IconButton(onClick = onBack) {
+            IconButton(onClick = onBack, modifier = Modifier.focusRing(CircleShape)) {
                 Icon(painterResource(R.drawable.ic_arrow_back), contentDescription = backLabel)
             }
         }
@@ -283,14 +382,14 @@ fun PageBar(
 
 @Composable
 fun AccentTextButton(text: String, onClick: () -> Unit, enabled: Boolean = true) {
-    TextButton(onClick = onClick, enabled = enabled) {
+    TextButton(onClick = onClick, enabled = enabled, modifier = Modifier.focusRing(CircleShape)) {
         Text(text, color = if (enabled) Caretto.colors.accent else Caretto.colors.muted)
     }
 }
 
 @Composable
 fun IconAction(@DrawableRes icon: Int, label: String, onClick: () -> Unit) {
-    IconButton(onClick = onClick) {
+    IconButton(onClick = onClick, modifier = Modifier.focusRing(CircleShape)) {
         Icon(painterResource(icon), contentDescription = label)
     }
 }

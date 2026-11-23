@@ -71,7 +71,7 @@ wallpaper, since an app whose colours change from phone to phone cannot be recog
 | Row | `#F1EEF4` | `#1D1A22` | The ground of each row and of the status row |
 | Ink | `#1D1B20` | `#EBE7F0` | Text, the add button, the snackbar |
 | Muted | `#625C6A` | `#A29CAB` | Detail lines, section labels, modifier keys, the outline and thumb of a switch that is off |
-| Accent | `#6A4BD0` | `#CBB6FF` | Switches, text buttons, the selected row in the two-pane Settings |
+| Accent | `#6A4BD0` | `#CBB6FF` | Switches, text buttons, the selected row in the two-pane Settings, the keyboard focus ring |
 | Track | `#CFC8D8` | `#433D4C` | The fill of a switch that is off, the outline of the capture box |
 | Sheet | `#FFFFFF` | `#1B1820` | Sheets from the bottom |
 | Running | `#2F7D4F` | `#7FD3A0` | The status dot while remapping |
@@ -79,7 +79,8 @@ wallpaper, since an app whose colours change from phone to phone cannot be recog
 | Stopped | `#B3261E` | `#F2B8B5` | The status dot while off, and Remove |
 
 Muted text is always below the large-text size, so it has to reach 4.5:1 on every ground it sits
-on at rest, and the darkest of those are a modifier key's fill (Ink at 7% over Row) and the
+on, at rest and with keyboard focus alike, since focus draws a ring and leaves the ground as it
+is. The darkest of those grounds are a modifier key's fill (Ink at 7% over Row) and the
 selected row, not the background. The light `#625C6A` gives 4.9:1 and 4.8:1 there; a grey as light
 as `#6B6573` still passes on the background but falls to 4.3:1 and 4.1:1 on those two.
 
@@ -87,6 +88,16 @@ A switch that is off is drawn by its Muted outline and thumb, not by its fill: T
 close to Row (1.4:1 in light, 1.6:1 in dark) to show where the switch is, and a white thumb on
 light Track reads at 1.6:1. The outline reaches 5.6:1 against Row in light and 6.4:1 in dark, and
 the thumb 4.0:1 and 3.9:1 against Track, above the 3:1 a control needs to be seen.
+
+Keyboard focus is a 2 dp Accent ring (`focusRing` in `ui/Components.kt`), and Material's focus
+tint is turned off in the theme. The tint reached only 1.2:1 against Row, and laid over a row it
+pulled Muted on a modifier key to 4.4:1. The ring reaches 5.2:1 against Row, 4.4:1 against the
+selected row and 5.7:1 against the background in light, and 9.6:1, 7.3:1 and 10.4:1 in dark. A
+row's ring sits just inside its edge; the ring of a filled control stands 2 dp off it. For the
+add button and `Open settings` that is because Accent next to Ink is too small a step to see
+(2.9:1 in light, 1.5:1 in dark), and for a switch because its track, when on, is Accent itself.
+The snackbar's Undo is ringed in the snackbar's text colour, for the same reason as the Ink
+controls. A sheet's drag handle keeps Material's own cue, its "Drag handle" tooltip.
 
 Violet stays in the mark and in the few controls listed above. It is not mixed into backgrounds
 and it does not colour the keys.
