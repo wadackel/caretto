@@ -347,7 +347,12 @@ class Runner {
         throw new StepFailure(`${step.chord} pressed over ${coverName} was not passed through`);
       }
     } finally {
-      if (cover === "shade") await adb(this.config, "shell", "cmd", "statusbar", "collapse");
+      // A failed collapse must not replace the step's own failure, which says what broke.
+      if (cover === "shade") {
+        await adb(this.config, "shell", "cmd", "statusbar", "collapse").catch((error: unknown) => {
+          this.log.write(`!!!!! collapsing the shade failed: ${error instanceof Error ? error.message : String(error)}`);
+        });
+      }
     }
     await this.openTestEditor();
     await this.focus(editor, before);
