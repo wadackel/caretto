@@ -109,9 +109,11 @@ Samsung Keyboard and Gboard, Japanese IME composition, folding, and how somethin
   own log (`logcat -s Caretto:D`).
 - **Turn verbose logging off as soon as the measurement is done.** It records every key press in
   every app, ordinary typing included (docs/debugging.md recipe 8).
-- **Merging follows whether the change has to be felt on the phone.** A change the gate and the
-  end-to-end run on the emulator fully cover (tools, tests, docs, fixes within what the scenarios
-  exercise) is merged by the agent once CI and the end-to-end run pass. A change that has to be
-  tried on the phone (IME-dependent behaviour, anything specific to the Fold, how something feels,
-  how the UI looks) waits for the owner's OK after trying it there. When unclear, treat it as the
-  second kind.
+- **The agent merges once CI and the end-to-end run pass; the phone is tried after the merge.**
+  This holds for a change that has to be tried on the phone too (IME-dependent behaviour, anything
+  specific to the Fold, how something feels, how the UI looks): it does not wait for the owner.
+  The owner tries it by installing the merged `main` on the phone, so the PR body of such a change
+  says what to try there; when unclear whether a change needs the phone, say what to try. The
+  instrumentation tests a change to `core/TextBoundary.kt` needs are among these: name them in the
+  PR body, and they run on the merged `main`, after the owner's yes. A problem found on the phone is
+  fixed by a revert or a follow-up PR, not by holding the merge.
