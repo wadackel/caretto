@@ -45,7 +45,9 @@ data class CarettoColors(
 private val Light = CarettoColors(
     background = Color(0xFFFBFAF7),
     ink = Color(0xFF1D1B20),
-    muted = Color(0xFF6B6573),
+    // Measured against the darkest grounds it sits on, not the background: a modifier key's fill
+    // and rowSelected. A lighter grey passes on the background and falls below 4.5:1 on those.
+    muted = Color(0xFF625C6A),
     line = Color(0xFFE4DFE8),
     accent = Color(0xFF6A4BD0),
     row = Color(0xFFF1EEF4),
