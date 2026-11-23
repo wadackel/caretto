@@ -18,7 +18,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.LocalMinimumInteractiveComponentSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
@@ -81,6 +80,9 @@ private val FocusRingWidth = 2.dp
 /** How far the ring around a filled control (a switch, the add button) sits beyond its edge. */
 val FocusRingOffset = 4.dp
 
+/** The corner of a ring [FocusRingOffset] out from a control whose own corner is [corner]. */
+fun offsetRingCorner(corner: Dp): Dp = corner + FocusRingOffset - FocusRingWidth / 2
+
 /** Height of a switch's track; the switch pads itself out to the minimum touch size around it. */
 private val SwitchTrackHeight = 32.dp
 
@@ -89,11 +91,11 @@ private val SwitchTrackHeight = 32.dp
  * focus. It takes the place of Material's focus tint, which the theme turns off.
  *
  * The ring's outer edge lies [outset] beyond the bounds; at zero it sits just inside them, which
- * suits a row. A filled control takes [FocusRingOffset], since a ring over its own edge would
- * change Ink to Accent, too small a step to see. [height] is the drawn height of a control padded
- * out to the minimum touch size, so the ring follows what is seen rather than the touch target;
- * once text makes the control taller than that, its bounds are what is drawn. [color] replaces
- * Accent on a ground too close to it, such as the Ink of the snackbar.
+ * suits a row. A filled control takes [FocusRingOffset]: a ring over its own edge would sit on Ink
+ * (the add button, `Open settings`), a step too small to see, or on a switch's Accent track. Give
+ * [height] when the control is drawn shorter than its bounds, centred in them, as a control padded
+ * out to the minimum touch size is. [color] replaces Accent on a ground too close to it, such as
+ * the Ink of the snackbar.
  */
 fun Modifier.focusRing(
     shape: Shape,
@@ -134,8 +136,7 @@ private class FocusRingNode(var shape: Shape, var outset: Dp, var height: Dp, va
         drawContent()
         if (!focused) return
         val stroke = FocusRingWidth.toPx()
-        val padded = size.height <= currentValueOf(LocalMinimumInteractiveComponentSize).toPx() + 1f
-        val drawn = if (height.isSpecified && padded) height.toPx() else size.height
+        val drawn = if (height.isSpecified) minOf(height.toPx(), size.height) else size.height
         // From the bounds to the centre line of the stroke, so the outer edge lands on outset.
         val inset = stroke / 2 - outset.toPx()
         val ring = Size(size.width - 2 * inset, drawn - 2 * inset)

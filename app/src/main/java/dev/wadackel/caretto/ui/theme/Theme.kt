@@ -23,8 +23,8 @@ import dev.wadackel.caretto.R
 
 /**
  * The palette, fixed rather than taken from the wallpaper: an app whose colours change from device
- * to device cannot be recognised by them. Violet is kept to the mark and the switches, so the
- * screen reads as type on a quiet ground.
+ * to device cannot be recognised by them. Violet is kept to the mark and the few controls
+ * docs/design.md lists for Accent, so the screen reads as type on a quiet ground.
  */
 @Immutable
 data class CarettoColors(

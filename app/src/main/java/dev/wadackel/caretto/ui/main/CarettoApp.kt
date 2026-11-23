@@ -54,6 +54,7 @@ import dev.wadackel.caretto.ui.AccentTextButton
 import dev.wadackel.caretto.ui.FocusRingOffset
 import dev.wadackel.caretto.ui.PageBar
 import dev.wadackel.caretto.ui.focusRing
+import dev.wadackel.caretto.ui.offsetRingCorner
 import dev.wadackel.caretto.ui.about.AboutPage
 import dev.wadackel.caretto.ui.theme.Caretto
 import kotlinx.coroutines.launch
@@ -65,6 +66,8 @@ private const val PASS_THROUGH = "apps/pass"
 private const val SELECT_DELETE = "apps/select"
 private const val LOG = "log"
 private const val ABOUT = "about"
+
+private val FabCorner = 18.dp
 
 private fun routeOf(item: SettingsItem) = when (item) {
     is SettingsItem.Apps -> if (item.list == AppList.PassThrough) PASS_THROUGH else SELECT_DELETE
@@ -157,13 +160,13 @@ fun CarettoApp(
             if (top == HOME) {
                 FloatingActionButton(
                     onClick = { sheet = KeymapSheet.Capture() },
-                    shape = RoundedCornerShape(18.dp),
+                    shape = RoundedCornerShape(FabCorner),
                     containerColor = Caretto.colors.ink,
                     contentColor = Caretto.colors.background,
                     elevation = FloatingActionButtonDefaults.elevation(defaultElevation = 4.dp),
                     modifier = Modifier
                         .windowInsetsPadding(WindowInsets.navigationBars)
-                        .focusRing(RoundedCornerShape(21.dp), outset = FocusRingOffset),
+                        .focusRing(RoundedCornerShape(offsetRingCorner(FabCorner)), outset = FocusRingOffset),
                 ) {
                     Icon(painterResource(R.drawable.ic_add), contentDescription = stringResource(R.string.add_binding))
                 }

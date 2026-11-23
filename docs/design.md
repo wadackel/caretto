@@ -93,10 +93,11 @@ Keyboard focus is a 2 dp Accent ring (`focusRing` in `ui/Components.kt`), and Ma
 tint is turned off in the theme. The tint reached only 1.2:1 against Row, and laid over a row it
 pulled Muted on a modifier key to 4.4:1. The ring reaches 5.2:1 against Row, 4.4:1 against the
 selected row and 5.7:1 against the background in light, and 9.6:1, 7.3:1 and 10.4:1 in dark. A
-row's ring sits just inside its edge; the ring of a filled control (a switch, the add button,
-`Open settings`) stands 2 dp off it, since Accent next to Ink is too small a step to see
-(2.9:1 in light, 1.5:1 in dark). The snackbar's Undo is ringed in the snackbar's text colour for
-the same reason. A sheet's drag handle keeps Material's own cue, its "Drag handle" tooltip.
+row's ring sits just inside its edge; the ring of a filled control stands 2 dp off it. For the
+add button and `Open settings` that is because Accent next to Ink is too small a step to see
+(2.9:1 in light, 1.5:1 in dark), and for a switch because its track, when on, is Accent itself.
+The snackbar's Undo is ringed in the snackbar's text colour, for the same reason as the Ink
+controls. A sheet's drag handle keeps Material's own cue, its "Drag handle" tooltip.
 
 Violet stays in the mark and in the few controls listed above. It is not mixed into backgrounds
 and it does not colour the keys.

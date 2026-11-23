@@ -28,11 +28,17 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
@@ -57,6 +63,7 @@ import dev.wadackel.caretto.ui.SectionLabel
 import dev.wadackel.caretto.ui.Spacing
 import dev.wadackel.caretto.ui.describe
 import dev.wadackel.caretto.ui.focusRing
+import dev.wadackel.caretto.ui.offsetRingCorner
 import dev.wadackel.caretto.ui.operationGroup
 import dev.wadackel.caretto.ui.operationLabel
 import dev.wadackel.caretto.ui.theme.Caretto
@@ -232,17 +239,39 @@ private fun StatusRow(
                 )
             }
             ServiceState.Connecting -> WaitingDots(colors.warn)
-            ServiceState.Stopped -> Button(
-                onClick = onOpenAccessibilitySettings,
-                // The ring's corners are the button's 8 dp plus the distance out to the stroke's middle.
-                modifier = Modifier.focusRing(RoundedCornerShape(11.dp), outset = FocusRingOffset, height = ButtonDefaults.MinHeight),
-                shape = RoundedCornerShape(8.dp),
-                contentPadding = PaddingValues(horizontal = Spacing.md, vertical = Spacing.sm),
-                colors = ButtonDefaults.buttonColors(containerColor = colors.ink, contentColor = colors.background),
-            ) { Text(stringResource(R.string.open_settings), style = MaterialTheme.typography.labelLarge) }
+            ServiceState.Stopped -> OpenSettingsButton(onOpenAccessibilitySettings)
         }
     }
 }
+
+@Composable
+private fun OpenSettingsButton(onClick: () -> Unit) {
+    val colors = Caretto.colors
+    val density = LocalDensity.current
+    var labelHeight by remember { mutableStateOf(0.dp) }
+    val padding = Spacing.sm
+    Button(
+        onClick = onClick,
+        // Its touch target is padded out to 48 dp, and how much of that the fill takes depends on
+        // the font size, so the ring is sized from the label rather than from the bounds.
+        modifier = Modifier.focusRing(
+            RoundedCornerShape(offsetRingCorner(ButtonCorner)),
+            outset = FocusRingOffset,
+            height = maxOf(ButtonDefaults.MinHeight, labelHeight + padding * 2),
+        ),
+        shape = RoundedCornerShape(ButtonCorner),
+        contentPadding = PaddingValues(horizontal = Spacing.md, vertical = padding),
+        colors = ButtonDefaults.buttonColors(containerColor = colors.ink, contentColor = colors.background),
+    ) {
+        Text(
+            stringResource(R.string.open_settings),
+            style = MaterialTheme.typography.labelLarge,
+            modifier = Modifier.onSizeChanged { labelHeight = with(density) { it.height.toDp() } },
+        )
+    }
+}
+
+private val ButtonCorner = 8.dp
 
 @Composable
 private fun StatusDot(color: Color, pulsing: Boolean) {
